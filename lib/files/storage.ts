@@ -12,7 +12,8 @@ import { join } from "node:path";
  */
 
 export function uploadDir(): string {
-  return process.env.UPLOAD_DIR || join(process.cwd(), "data", "uploads");
+  // 실행할 때 정해지는 경로다. 표시가 없으면 번들러가 이 경로를 따라 프로젝트 전체를 서버 산출물에 싣는다.
+  return process.env.UPLOAD_DIR || join(/*turbopackIgnore: true*/ process.cwd(), "data", "uploads");
 }
 
 /** 열쇠 하나 = 파일 하나. 확장자를 붙이지 않아 무엇으로도 실행되지 않는다. */
@@ -29,13 +30,13 @@ function pathFor(storageKey: string): string {
     throw new Error("Invalid storage key.");
   }
   // 한 폴더에 파일이 수만 개 쌓이지 않도록 앞 두 자리로 나눈다.
-  return join(uploadDir(), storageKey.slice(0, 2), storageKey);
+  return join(/*turbopackIgnore: true*/ uploadDir(), storageKey.slice(0, 2), storageKey);
 }
 
 export async function saveFile(bytes: Buffer): Promise<{ storageKey: string; sha256: string }> {
   const storageKey = newStorageKey();
   const target = pathFor(storageKey);
-  await mkdir(join(uploadDir(), storageKey.slice(0, 2)), { recursive: true });
+  await mkdir(join(/*turbopackIgnore: true*/ uploadDir(), storageKey.slice(0, 2)), { recursive: true });
   await writeFile(target, bytes);
   return { storageKey, sha256: createHash("sha256").update(bytes).digest("hex") };
 }

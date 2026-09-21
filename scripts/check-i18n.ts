@@ -10,7 +10,7 @@ import { join, relative, sep } from "node:path";
  * 남은 곳(문자열·JSX 글)에 한글이 있으면 알린다. 예외는 아래 ALLOW 에 이유와 함께 적는다.
  */
 
-const ROOTS = ["app", "components", "lib", "i18n", "proxy.ts", "instrumentation.ts"];
+const ROOTS = ["app", "components", "lib", "i18n", "proxy.ts", "instrumentation.ts", "instrumentation-node.ts"];
 
 const ALLOW = [
   // 번역 파일 자체

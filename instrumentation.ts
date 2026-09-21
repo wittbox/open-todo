@@ -1,51 +1,13 @@
 /**
- * 서버가 켜질 때 한 번 — 설치가 위험하거나 반쪽인 상태로 떠 있으면 로그로 알린다.
- * (Next 의 instrumentation 파일 규칙. 요청을 처리하지 않는다.)
+ * 서버가 켜질 때 한 번(Next 의 instrumentation 파일 규칙. 요청을 처리하지 않는다).
+ *
+ * register() 는 Node·Edge 두 런타임에서 모두 불린다. 이 조건은 빌드 때 런타임마다 값이 박혀
+ * Edge 번들에서는 아래 import 가 통째로 빠진다 — 조건을 뒤집어 일찍 return 하는 모양으로 쓰면
+ * 빠지지 않고, Edge 번들이 node: 모듈과 Prisma 를 끌어들인다는 경고가 난다.
  */
 export async function register() {
-  if (process.env.NEXT_RUNTIME !== "nodejs") return;
-  await checkInstall();
-  await checkAdmin();
-}
-
-async function checkInstall() {
-  const [{ installProblems }, crypto, { smtpConfig }] = await Promise.all([
-    import("@/lib/startup"),
-    import("node:crypto"),
-    import("@/lib/mail/smtp"),
-  ]);
-
-  let mailConfigured = process.env.MOCK_MAIL === "1";
-  try {
-    mailConfigured ||= smtpConfig() != null;
-  } catch (e) {
-    // SMTP 설정이 있는데 값이 틀린 경우(MAIL_FROM 이 주소가 아님 등). 그대로 알린다.
-    console.error(`[setup] ${e instanceof Error ? e.message : e}`);
-  }
-
-  const problems = installProblems(process.env, {
-    hasArgon2: typeof (crypto as { argon2?: unknown }).argon2 === "function",
-    mailConfigured,
-  });
-
-  for (const p of problems) {
-    const line = `[setup] ${p.message}`;
-    if (p.level === "error") console.error(line);
-    else console.warn(line);
-  }
-}
-
-async function checkAdmin() {
-  try {
-    const { firstAdminWindowOpen, bootstrapEmail } = await import("@/lib/auth/instance");
-    if (!(await firstAdminWindowOpen())) return;
-    const only = bootstrapEmail();
-    console.warn(
-      only
-        ? `[setup] No administrator yet. Whoever signs up as ${only} becomes the administrator.`
-        : "[setup] No administrator yet. The first person to sign up becomes the administrator — on a server reachable from the internet, create that account now or set ADMIN_BOOTSTRAP_EMAIL.",
-    );
-  } catch {
-    // DB 가 아직 준비되지 않았을 수 있다(마이그레이션 전). 알림일 뿐이라 넘어간다.
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { runStartupChecks } = await import("./instrumentation-node");
+    await runStartupChecks();
   }
 }

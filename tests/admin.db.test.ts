@@ -73,7 +73,9 @@ afterAll(async () => {
   await prisma.invitation.deleteMany({ where: { OR: [{ createdById: bossId }, { email: { contains: tag } }] } });
   await prisma.verificationToken.deleteMany({ where: { email: { contains: tag } } });
   await prisma.user.deleteMany({ where: { email: { contains: tag } } });
+  // 행이 없던 DB(새로 만든 CI DB)면 지워서 되돌린다 — 남겨 두면 뒤따르는 파일이 바뀐 정책으로 돈다.
   if (savedPolicy) await setPolicy(savedPolicy.signupPolicy, savedPolicy.allowedDomains);
+  else await prisma.instanceSettings.deleteMany({ where: { id: "singleton" } });
 });
 beforeEach(() => {
   sent.length = 0;

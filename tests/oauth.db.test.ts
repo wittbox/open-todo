@@ -182,6 +182,7 @@ d("연결 규칙", () => {
     await prisma.verificationToken.deleteMany({ where: { email: { contains: tag } } });
     await prisma.invitation.deleteMany({ where: { email: { contains: tag } } });
     if (savedPolicy) await policy(savedPolicy.signupPolicy, savedPolicy.allowedDomains);
+    else await prisma.instanceSettings.deleteMany({ where: { id: "singleton" } });
   });
 
   it("처음 보는 Google 계정 + 확인된 이메일 + 누구나 → 사용자를 만들고 로그인", async () => {
@@ -313,6 +314,7 @@ d("시작 → 콜백 왕복", () => {
     delete process.env.APP_BASE_URL;
     await prisma.user.deleteMany({ where: { email: { contains: tag } } });
     if (savedPolicy) await policy(savedPolicy.signupPolicy, savedPolicy.allowedDomains);
+    else await prisma.instanceSettings.deleteMany({ where: { id: "singleton" } });
   });
   afterEach(() => jar.clear());
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { getTranslations } from "next-intl/server";
 import { pageTitle } from "@/lib/brand-server";
 import { firstAdminWindowOpen, getInstanceSettings, signupScreenOpen } from "@/lib/auth/instance";
@@ -16,6 +17,9 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /** 초대 없이 가입 — 가입 정책이 "누구나" 나 "허용 도메인" 일 때만 열린다. */
 export default async function SignupPage() {
+  // 가입 정책은 요청 때 읽는다. 이 화면은 쿠키·주소를 보지 않아 빌드 때 미리 그려지는데,
+  // 그러면 빌드가 DB 에 닿아야 해서 DB 없는 빌드(CI·Docker)가 멈춘다.
+  await connection();
   const settings = await getInstanceSettings();
   if (!(await signupScreenOpen(settings))) redirect("/login");
   const t = await getTranslations("auth");
