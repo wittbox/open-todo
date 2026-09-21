@@ -62,6 +62,12 @@ describe("설치 점검", () => {
     expect(has(messages({ ...OK, TRUST_PROXY: "1" }), "warn", "TRUST_PROXY")).toBe(false);
   });
 
+  it("아직 닫아 둔 제공자의 열쇠를 넣으면 알린다 — Google 은 조용하다", () => {
+    expect(has(messages({ ...OK, KAKAO_CLIENT_ID: "k" }), "warn", "Kakao sign-in isn't available")).toBe(true);
+    expect(has(messages({ ...OK, NAVER_CLIENT_ID: "n" }), "warn", "NAVER sign-in isn't available")).toBe(true);
+    expect(messages({ ...OK, GOOGLE_CLIENT_ID: "g", GOOGLE_CLIENT_SECRET: "s" })).toEqual([]);
+  });
+
   it("cron 열쇠·메일 서버가 없으면 무엇이 멈추는지 알린다", () => {
     expect(has(messages({ ...OK, CRON_KEY: "" }), "warn", "morning digest")).toBe(true);
     expect(has(messages(OK, { mailConfigured: false }), "warn", "No mail server")).toBe(true);

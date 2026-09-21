@@ -68,14 +68,9 @@ services:
       MOCK_MAIL: ${MOCK_MAIL:-}
       REPORT_MAIL_MAX_RECIPIENTS: ${REPORT_MAIL_MAX_RECIPIENTS:-}
       REPORT_MAIL_DAILY_LIMIT: ${REPORT_MAIL_DAILY_LIMIT:-}
-      # Sign in with a provider. A button shows up only when both values are set.
+      # Sign in with Google. The button shows up only when both values are set.
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID:-}
-      KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-}
-      KAKAO_REQUEST_EMAIL: ${KAKAO_REQUEST_EMAIL:-}
-      NAVER_CLIENT_ID: ${NAVER_CLIENT_ID:-}
-      NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET:-}
       UPLOAD_DIR: /app/uploads
       CRON_KEY: ${CRON_KEY:?set CRON_KEY in .env}
     volumes:

@@ -25,7 +25,7 @@ Built with Next.js 16, React 19, Prisma 7 and PostgreSQL. MIT licensed.
   share the link, or send it by email as HTML plus a PDF — now or at a scheduled time.
 - **Notifications** — reminders, due-today, assignments and mentions, plus an optional
   morning digest sent at 8am in each person's own time zone.
-- **Sign-in** — email and password, and optionally Google, Kakao or NAVER.
+- **Sign-in** — email and password, and optionally Google. Kakao and NAVER are on the way.
 - **Administration** — sign-up policy, invitation links, people (make admin, disable,
   issue a reset link), and the name of the install.
 
@@ -101,20 +101,16 @@ Without a mail server the app still runs: administrators hand invitation and pas
 links over themselves, and the app says so on the screens where it matters. It will not
 silently drop mail — in production, sending fails loudly instead.
 
-## Sign in with Google, Kakao or NAVER
+## Sign in with Google
 
-All three are optional, and a button only appears for a provider that has both values set.
-Register the callback URL `{APP_BASE_URL}/auth/<provider>/callback` with each of them.
+Optional. Google Auth Platform → create an app → OAuth client ID (web) → add the redirect URI
+`{APP_BASE_URL}/auth/google/callback`. Put the two values in `GOOGLE_CLIENT_ID` and
+`GOOGLE_CLIENT_SECRET`; the button appears once both are set. While the app is in Google's
+*testing* status only the test users you list can sign in — publish it for everyone else.
 
-- **Google** — Google Auth Platform → create an app → OAuth client ID (web) → add the
-  redirect URI. `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
-- **Kakao** — Kakao Developers → add an app → enable Kakao Login → redirect URI → generate
-  and enable a client secret. The email address needs a "biz app"; without one leave
-  `KAKAO_REQUEST_EMAIL` empty and people will type their address and confirm it by mail.
-  `KAKAO_CLIENT_ID` (the REST API key), `KAKAO_CLIENT_SECRET`.
-- **NAVER** — NAVER Developers → register an application → Naver Login → service and
-  callback URL. NAVER never says whether an address is verified, so a confirmation mail is
-  always sent. `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`.
+**Kakao and NAVER** are not available yet. The code for them is in the repository, but it
+hasn't been through a real sign-in with either service, so it stays switched off: setting
+their keys shows no button, and the server logs that at startup.
 
 Provider tokens are used once and thrown away; nothing is stored. An existing account is
 never linked automatically — sign in the old way first, then connect the provider in
@@ -139,8 +135,6 @@ provider.
 | `REPORT_MAIL_MAX_RECIPIENTS` | | Recipients per report send. Default 10. |
 | `REPORT_MAIL_DAILY_LIMIT` | | Recipients per person per 24 hours. Default 100. |
 | `GOOGLE_CLIENT_ID` `GOOGLE_CLIENT_SECRET` | | Sign in with Google. |
-| `KAKAO_CLIENT_ID` `KAKAO_CLIENT_SECRET` `KAKAO_REQUEST_EMAIL` | | Sign in with Kakao. |
-| `NAVER_CLIENT_ID` `NAVER_CLIENT_SECRET` | | Sign in with NAVER. |
 | `UPLOAD_DIR` | | Where attachments are written. Compose mounts `./data/uploads`. |
 | `CRON_KEY` | yes | Key for `/api/cron/*`. Without it those endpoints stay closed and nothing scheduled runs. |
 | `MOCK_MAIL` | | `1` writes mail to `tmp/mail/*.html` instead of sending. Development only. |

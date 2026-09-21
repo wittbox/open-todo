@@ -21,7 +21,7 @@ Next.js 16 · React 19 · Prisma 7 · PostgreSQL. MIT 라이선스.
   고쳐 쓰고, 발행하면 그 순간이 굳고, 링크로 공유하거나 HTML 본문 + PDF 로 메일을 보낸다 —
   지금 또는 예약한 시각에.
 - **알림** — 미리 알림, 오늘 기한, 담당 지정, @호출. 원하면 아침 요약 메일을 각자 현지 8시에 받는다.
-- **로그인** — 이메일·비밀번호, 그리고 원하면 Google·카카오·네이버.
+- **로그인** — 이메일·비밀번호, 그리고 원하면 Google. 카카오·네이버는 준비 중.
 - **관리자** — 가입 정책, 초대 링크, 사람(관리자 지정·사용 중지·재설정 링크 발급), 설치 이름.
 
 | 할 일과 상세 | 주간보고서 |
@@ -90,19 +90,15 @@ MAIL_FROM="open-todo <todo@example.com>"
 메일 서버가 없어도 앱은 돈다. 초대와 재설정 링크를 관리자가 직접 전달하면 되고, 화면에도 그렇게
 안내한다. 대신 운영에서는 조용히 삼키지 않고 실패한다.
 
-## Google · 카카오 · 네이버 로그인
+## Google 로그인
 
-셋 다 선택이고, 값이 둘 다 있는 제공자만 버튼이 보인다. 각 콘솔에 콜백 주소
-`{APP_BASE_URL}/auth/<provider>/callback` 을 등록한다.
+선택이다. Google Auth Platform → 앱 만들기 → OAuth 클라이언트 ID(웹) → 리디렉션 URI
+`{APP_BASE_URL}/auth/google/callback` 추가. 두 값을 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` 에 넣으면
+버튼이 나온다. 앱이 Google 의 *테스트* 상태인 동안에는 등록한 테스트 사용자만 로그인할 수 있다 —
+모두에게 열려면 게시한다.
 
-- **Google** — Google Auth Platform → 앱 만들기 → OAuth 클라이언트 ID(웹) → 리디렉션 URI 추가.
-  `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
-- **카카오** — Kakao Developers → 앱 추가 → 카카오 로그인 켜기 → Redirect URI → Client Secret
-  생성·활성화. 이메일을 받으려면 비즈 앱 전환이 필요하다. 아니라면 `KAKAO_REQUEST_EMAIL` 을 비워 두면
-  되고, 사용자가 주소를 적고 확인 메일을 거친다. `KAKAO_CLIENT_ID`(REST API 키), `KAKAO_CLIENT_SECRET`.
-- **네이버** — NAVER Developers → 애플리케이션 등록 → 네이버 로그인 → 서비스 URL·Callback URL.
-  네이버는 주소가 확인된 것인지 알려 주지 않으므로 늘 확인 메일을 한 번 거친다.
-  `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`.
+**카카오·네이버는 아직 쓸 수 없다.** 코드는 저장소에 있지만 실제 서비스로 로그인해 본 적이 없어
+꺼 두었다 — 열쇠를 넣어도 버튼이 나오지 않고, 서버가 시작할 때 로그로 알린다.
 
 제공자 토큰은 쓰고 버린다(저장하지 않는다). 같은 이메일의 기존 계정에 **자동으로 붙이지 않는다** —
 원래 방법으로 로그인한 뒤 *설정* 에서 연결한다. 제공자 쪽 주소를 손에 넣은 사람이 남의 계정을
@@ -126,8 +122,6 @@ MAIL_FROM="open-todo <todo@example.com>"
 | `REPORT_MAIL_MAX_RECIPIENTS` | | 보고서 한 번에 받는 사람 수. 기본 10. |
 | `REPORT_MAIL_DAILY_LIMIT` | | 한 사람이 24시간에 보낼 수 있는 수신자 합계. 기본 100. |
 | `GOOGLE_CLIENT_ID` `GOOGLE_CLIENT_SECRET` | | Google 로그인. |
-| `KAKAO_CLIENT_ID` `KAKAO_CLIENT_SECRET` `KAKAO_REQUEST_EMAIL` | | 카카오 로그인. |
-| `NAVER_CLIENT_ID` `NAVER_CLIENT_SECRET` | | 네이버 로그인. |
 | `UPLOAD_DIR` | | 첨부를 쓰는 곳. compose 는 `./data/uploads` 를 붙인다. |
 | `CRON_KEY` | ○ | `/api/cron/*` 의 열쇠. 없으면 그 주소가 닫히고 예약된 것이 하나도 돌지 않는다. |
 | `MOCK_MAIL` | | `1` 이면 보내는 대신 `tmp/mail/*.html` 로 떨어뜨린다. 개발 전용. |

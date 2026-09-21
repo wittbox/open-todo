@@ -5,6 +5,8 @@
  * 알게 되면 늦으므로 시작할 때 한 줄로 알린다. 문구는 서버 로그를 보는 사람(운영자)의 것이라 영어다.
  */
 
+import { PROVIDER_LABEL, PROVIDERS, READY_PROVIDERS } from "@/lib/auth/oauth/config";
+
 export type Problem = { level: "error" | "warn"; message: string };
 
 export type InstallFacts = {
@@ -75,6 +77,13 @@ export function installProblems(env: NodeJS.ProcessEnv, facts: InstallFacts): Pr
     warn(
       "CRON_KEY is not set, so /api/cron/* stays closed: no reminders, no morning digest and no scheduled report mail. Generate one with: openssl rand -hex 32",
     );
+  }
+
+  // 코드는 있지만 실제 서비스로 확인하지 않은 제공자 — 열쇠를 넣어도 켜지지 않는다는 것을 알린다.
+  for (const p of PROVIDERS) {
+    if (!READY_PROVIDERS.includes(p) && env[`${p}_CLIENT_ID`]?.trim()) {
+      warn(`${p}_CLIENT_ID is set, but ${PROVIDER_LABEL[p]} sign-in isn't available in this version yet. No button is shown.`);
+    }
   }
 
   if (production && !facts.mailConfigured) {
