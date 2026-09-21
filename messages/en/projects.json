@@ -1,0 +1,173 @@
+{
+  "title": "Projects",
+  "newProject": "New project",
+  "allProjects": "See all projects",
+  "expand": "Expand",
+  "collapse": "Collapse",
+  "expandProjects": "Expand projects",
+  "collapseProjects": "Collapse projects",
+  "close": "Close",
+  "cancel": "Cancel",
+  "save": "Save",
+  "visibility": {
+    "label": "Visibility",
+    "public": "Public — anyone on this server can find and join",
+    "private": "Private — invite only"
+  },
+  "directory": {
+    "mine": "My projects ({count})",
+    "mineEmpty": "You are not in any project yet. Join a public project below, or create one.",
+    "open": "Public projects ({count}) — join to see the conversation",
+    "openEmpty": "There are no public projects to join.",
+    "archived": "Archived projects ({count})",
+    "privatePlaceholder": "Private",
+    "memberCount": "{count, plural, one {# member} other {# members}}",
+    "archivedMark": "· Archived"
+  },
+  "join": {
+    "summary": "Public project · {count, plural, one {# member} other {# members}}",
+    "intro": "Join to read the conversation and post.",
+    "action": "Join"
+  },
+  "header": {
+    "archived": "Archived · read-only",
+    "members": "Members {count}"
+  },
+  "pins": {
+    "count": "{count, plural, one {# pinned} other {# pinned}}",
+    "unpin": "Unpin"
+  },
+  "stream": {
+    "loadOlder": "Show earlier messages",
+    "loadingOlder": "Loading…",
+    "empty": "No messages yet. Post the first one.",
+    "unreadDivider": "Unread from here",
+    "newBelow": "{count, plural, one {# new message} other {# new messages}} ↓",
+    "placeholder": "Message {name}",
+    "copyFailed": "Could not copy. Link: {url}",
+    "confirmDelete": "Delete this message?",
+    "confirmDeleteWithReplies": "Delete this message? Its {count, plural, one {# reply} other {# replies}} will stay.",
+    "confirmDeleteReply": "Delete this reply?"
+  },
+  "message": {
+    "deletedAuthor": "Deleted message",
+    "deletedBody": "This message was deleted",
+    "unknownUser": "Unknown",
+    "edited": "(edited)",
+    "pinned": "Pinned",
+    "menu": "Message menu",
+    "reply": "Reply",
+    "replyInThread": "Reply in thread",
+    "replyCount": "{count, plural, one {# reply} other {# replies}}",
+    "lastReply": "· last {when}",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "copyLink": "Copy link",
+    "copyText": "Copy text",
+    "edit": "Edit",
+    "delete": "Delete",
+    "mentionAll": "everyone",
+    "mentionMe": "me"
+  },
+  "editor": {
+    "label": "Edit message",
+    "hint": "Enter to save · Esc to cancel"
+  },
+  "composer": {
+    "locked": "You cannot post here.",
+    "mentionList": "People to mention",
+    "mentionAllHint": "Everyone in this project",
+    "attachedFiles": "Files to attach",
+    "removeFile": "Remove {name}",
+    "attach": "Attach files",
+    "mention": "Mention someone",
+    "hint": "Enter to send · Shift+Enter for a new line",
+    "hintWithFiles": "Enter to send · Shift+Enter for a new line · paste or drop files",
+    "sending": "Sending…",
+    "send": "Send"
+  },
+  "thread": {
+    "title": "Thread",
+    "close": "Close thread",
+    "replies": "{count, plural, one {# reply} other {# replies}}",
+    "placeholder": "Write a reply"
+  },
+  "new": {
+    "name": "Name",
+    "namePlaceholder": "e.g. Overseas sales",
+    "purpose": "Purpose (optional)",
+    "purposePlaceholder": "What this project is for",
+    "create": "Create"
+  },
+  "members": {
+    "title": "Members",
+    "search": "Find people by name or email",
+    "searchLabel": "Find people",
+    "me": "(me)",
+    "owner": "Owner",
+    "leave": "Leave",
+    "confirmLeave": "Leave this project?",
+    "roleLabel": "{name} role",
+    "confirmRemove": "Remove {name} from this project?",
+    "admin": "Admin",
+    "member": "Member",
+    "remove": "Remove"
+  },
+  "settings": {
+    "title": "Project settings",
+    "name": "Name",
+    "purpose": "Purpose (one line)",
+    "owner": "Owner",
+    "ownerOption": "{name} (current owner)",
+    "transfer": "Transfer",
+    "confirmTransfer": "Transfer ownership to {name}? You stay an admin.",
+    "archive": "Archive",
+    "archiveAction": "Archive",
+    "archiveHint": "Turns the project read-only. You can undo this later.",
+    "unarchive": "Unarchive",
+    "unarchiveHint": "Lets people post again.",
+    "delete": "Delete",
+    "deleteHint": "Messages, files and members are all removed. This cannot be undone.",
+    "deleteAction": "Delete project",
+    "confirmDelete": "Delete the project \"{name}\"? All messages and files will be gone."
+  },
+  "day": {
+    "today": "Today",
+    "yesterday": "Yesterday"
+  },
+  "relative": {
+    "justNow": "Just now",
+    "minutes": "{count, plural, one {# minute ago} other {# minutes ago}}",
+    "hours": "{count, plural, one {# hour ago} other {# hours ago}}",
+    "yesterdayAt": "Yesterday {time}",
+    "dateAt": "{month}/{day} {time}"
+  },
+  "send": {
+    "failed": "Could not send. Check your connection.",
+    "failedShort": "Could not send.",
+    "unauthenticated": "Please sign in."
+  },
+  "defaults": {
+    "untitled": "Untitled project"
+  },
+  "errors": {
+    "archived": "Archived projects are read-only.",
+    "transferToMemberOnly": "Ownership can only go to a member.",
+    "ownerMustTransfer": "The owner has to transfer ownership first.",
+    "ownerCannotBeRemoved": "The owner cannot be removed.",
+    "removeAdminOwnerOnly": "Only the owner can remove an admin.",
+    "ownerRoleFixed": "The role of the owner cannot be changed.",
+    "demoteOwnerOnly": "Only the owner can take away admin rights.",
+    "pinReply": "Replies cannot be pinned.",
+    "pinLimit": "You can pin up to {max, plural, one {# message} other {# messages}}.",
+    "emptyBody": "There is nothing to post.",
+    "bodyTooLong": "A message can be up to {max, number} characters.",
+    "tooManyMentions": "{count} people is too many for one message. You can mention up to {max}.",
+    "replyToReply": "You cannot reply to a reply.",
+    "replyToDeleted": "You cannot reply to a deleted message.",
+    "editOwnOnly": "You can only edit your own messages.",
+    "deleteOwnOrAdmin": "You can delete your own messages, or any message if you are an admin.",
+    "notFound": "Not found, or you do not have access.",
+    "badRequest": "The request could not be read."
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "generic": "Something went wrong. Please try again.",
+  "unauthenticated": "Please sign in.",
+  "forbidden": "This item doesn't exist or you don't have access to it."
+}

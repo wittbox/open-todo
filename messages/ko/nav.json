@@ -1,0 +1,75 @@
+{
+  "titles": {
+    "calendar": "달력",
+    "assigned": "나에게 할당됨",
+    "tasks": "작업",
+    "notifications": "알림",
+    "projects": "프로젝트",
+    "reports": "주간보고서",
+    "list": "목록"
+  },
+  "openMenu": "메뉴 열기",
+  "closeMenu": "메뉴 닫기",
+  "dockMenu": "메뉴 고정",
+  "collapseMenu": "메뉴 접기",
+  "unread": "알림 {count}개",
+  "account": "계정",
+  "settings": "설정",
+  "admin": "관리자",
+  "signOut": "로그아웃",
+  "collapse": "접기",
+  "expand": "펼치기",
+  "rowMenu": "{name} 메뉴",
+  "readOnly": "읽기 전용",
+  "sharedLists": "공유된 목록",
+  "dropListsHere": "여기로 목록을 끌어다 놓으세요",
+  "listName": "목록 이름",
+  "newList": "새 목록",
+  "newGroup": "새 그룹",
+  "untitledGroup": "제목 없는 그룹",
+  "noPermission": "권한 없음",
+  "pendingPhase7": "7단계",
+  "pendingNone": "없음",
+  "search": {
+    "placeholder": "검색",
+    "clear": "지우기",
+    "empty": "결과가 없습니다.",
+    "jump": "바로 이동",
+    "results": "검색 결과",
+    "goTo": "{title}(으)로 이동"
+  },
+  "jump": {
+    "title": "작업 번호로 이동",
+    "hint": "상세 패널의 #번호를 입력하세요.",
+    "go": "이동"
+  },
+  "listMenu": {
+    "rename": "목록 이름 바꾸기",
+    "share": "목록 공유",
+    "move": "목록을 다음 위치로 이동…",
+    "removeFromGroup": "그룹에서 제거",
+    "outOfGroup": "그룹에서 빼기",
+    "noTargetGroup": "옮길 그룹이 없습니다",
+    "print": "목록 인쇄",
+    "mail": "전자 메일로 목록 보내기",
+    "duplicate": "목록 복제",
+    "delete": "목록 삭제",
+    "confirmDelete": "''{name}'' 목록과 그 안의 작업을 모두 삭제합니다. 되돌릴 수 없습니다."
+  },
+  "groupMenu": {
+    "rename": "그룹 이름 바꾸기",
+    "share": "그룹 공유",
+    "ungroup": "그룹 해제",
+    "confirmUngroup": "''{name}'' 그룹을 해제합니다. 안에 있던 목록은 최상위로 이동합니다."
+  },
+  "error": {
+    "staleTitle": "새 버전이 올라왔습니다",
+    "staleLine1": "열어 두신 화면이 이전 버전이라 잠시 어긋났습니다.",
+    "staleLine2": "다시 불러오면 그대로 이어집니다. 저장한 내용은 그대로입니다.",
+    "failedTitle": "화면을 열지 못했습니다",
+    "failedLine1": "잠시 문제가 생겼습니다. 다시 불러와 주세요.",
+    "failedLine2": "계속 같은 화면이 나오면 알려 주세요.",
+    "reload": "다시 불러오기",
+    "retry": "이 화면만 다시 그리기"
+  }
+}

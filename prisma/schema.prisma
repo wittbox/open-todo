@@ -1,0 +1,603 @@
+// To Do 웹앱 데이터 모델
+// 그룹 - 목록 - 작업 - 세부 단계 계층 + 그룹/목록 공유 권한 + 주간보고서
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+// Prisma 7부터 접속 URL은 schema가 아니라 prisma.config.ts(마이그레이션)와
+// PrismaClient 어댑터(런타임, lib/db.ts)에서 지정한다.
+datasource db {
+  provider = "postgresql"
+}
+
+enum ShareSubjectType {
+  GROUP
+  LIST
+  /// 주간보고서. 발행된 것만 공유 대상이 되며 읽기 전용이다.
+  REPORT
+}
+
+enum ShareRole {
+  VIEWER
+  EDITOR
+  ADMIN
+}
+
+enum ListSortBy {
+  MANUAL
+  DUE_DATE
+  IMPORTANCE
+  ALPHABETICAL
+  CREATED_AT
+}
+
+enum RepeatUnit {
+  DAY
+  WEEK
+  MONTH
+  YEAR
+}
+
+enum NotificationKind {
+  /// 사용자가 지정한 미리 알림 시각이 됐다
+  REMINDER
+  /// 기한이 오늘이다
+  DUE_TODAY
+  /// 누가 나를 담당자로 지정했다
+  ASSIGNED
+  /// 누가 목록을 나에게 공유했다
+  SHARED
+  /// 예약해 둔 보고서 메일이 끝내 나가지 못했다
+  REPORT_SEND_FAILED
+  /// 프로젝트 메시지에서 누가 나를 @로 불렀다
+  MENTION
+  /// 누가 나를 프로젝트에 넣었다
+  PROJECT_INVITED
+}
+
+/// 프로젝트 멤버 역할. 읽기 전용 멤버는 없다 — 대화 공간에 들어왔으면 말할 수 있다.
+/// 권한 계산에서는 MEMBER→EDITOR, ADMIN→ADMIN 으로 옮겨 기존 Role 규칙을 그대로 쓴다.
+enum ProjectRole {
+  MEMBER
+  ADMIN
+}
+
+enum UserRole {
+  USER
+  /// 가입 정책·초대·사용자 관리를 한다. 첫 관리자는 설치 직후 한 번만 정해진다(InstanceSettings.setupCompletedAt).
+  ADMIN
+}
+
+/// 외부 로그인 제공자
+enum AuthProvider {
+  GOOGLE
+  KAKAO
+  NAVER
+}
+
+enum TokenPurpose {
+  /// 이메일·비밀번호로 가입한 뒤 이메일 확인
+  VERIFY_EMAIL
+  /// 비밀번호 재설정
+  RESET_PASSWORD
+  /// 이메일을 확인해 주지 않는 제공자로 처음 로그인한 사람의 가입. 확인 링크를 누르면 사용자가 생긴다.
+  /// 연결할 제공자 계정은 data 에 둔다.
+  OAUTH_SIGNUP
+}
+
+enum SignupPolicy {
+  /// 초대 링크가 있어야 가입한다(기본)
+  INVITE_ONLY
+  /// 허용한 이메일 도메인이면 가입한다. 확인된 이메일만 본다.
+  DOMAIN
+  /// 누구나 가입한다
+  OPEN
+}
+
+enum ReportSendStatus {
+  /// 정한 시각을 기다리는 중
+  SCHEDULED
+  /// 예약 처리기가 집어 들어 보내는 중. 5분 주기 두 번이 겹쳐도 한 번만 나가게 한다.
+  SENDING
+  SENT
+  FAILED
+  /// 사람이 취소했거나, 보낼 발행본이 사라져 멈췄다
+  CANCELED
+}
+
+model User {
+  id              String    @id @default(cuid())
+  /// 소문자로 맞춰 저장한다(lib/auth 가 정규화). 로그인·초대·공유의 열쇠.
+  email           String    @unique
+  /// 이메일을 확인한 시각. 확인 전에는 비밀번호로 로그인할 수 없고, 보고서 메일도 보낼 수 없다.
+  emailVerifiedAt DateTime?
+  /// argon2id PHC 문자열. 외부 로그인만 쓰는 사람은 비어 있다.
+  passwordHash    String?
+  /// 세션 무효화 번호. 비밀번호 변경·재설정·모든 기기 로그아웃·비활성화·권한 변경 때 올린다 —
+  /// 세션 토큰의 sv 가 이 값과 다르면 로그아웃된다.
+  sessionVersion  Int       @default(0)
+  role            UserRole  @default(USER)
+  /// 관리자가 막은 사람. 로그인·검색·멘션·담당자 고르기에서 빠진다. 만든 것은 남는다.
+  disabledAt      DateTime?
+  name            String
+  /// 사용자가 적는 소속(선택). 보고서 제목과 사람 고르기에 보인다.
+  department      String?
+  avatarColor     String    @default("#c2185b")
+  /// 사용자 환경설정(언어, 시간대, 테마, 완료 항목 표시, 일련번호 표시 등)
+  settings        Json      @default("{}")
+  /// 아침 요약 메일을 받을지. 기본은 받는다.
+  dailyMail       Boolean   @default(true)
+  /// 마지막으로 요약 메일을 보낸 시각. 받는 사람 시간대의 하루 한 통을 지키는 기준.
+  lastDigestAt    DateTime?
+  /// 마지막 로그인. 한 번도 들어온 적 없는 사람에게는 요약 메일을 보내지 않는다.
+  lastLoginAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  accounts           Account[]
+  verificationTokens VerificationToken[]
+  invitationsCreated Invitation[]
+  groups             Group[]
+  lists              List[]
+  createdTasks       Task[]              @relation("TaskCreator")
+  assignedTasks      Task[]              @relation("TaskAssignee")
+  attachments        Attachment[]        @relation("AttachmentUploader")
+  myDayEntries       MyDayEntry[]
+  sharesReceived     Share[]             @relation("ShareGrantee")
+  sharesGranted      Share[]             @relation("ShareInviter")
+  invitesCreated     ShareInvite[]
+  reports            WeeklyReport[]
+  notifications      Notification[]      @relation("NotificationUser")
+  actedNotifications Notification[]      @relation("NotificationActor")
+  ownedProjects      Project[]           @relation("ProjectOwner")
+  projectMemberships ProjectMember[]
+  messages           Message[]           @relation("MessageAuthor")
+  messageMentions    MessageMention[]
+}
+
+/// 외부 로그인(Google·Kakao·Naver) 연결. 제공자마다 한 계정까지 붙인다.
+///
+/// 제공자의 토큰은 두지 않는다 — 로그인 순간에 누구인지 확인하는 데만 쓰고 버린다.
+/// 같은 이메일의 사용자가 있어도 자동으로 잇지 않는다(남의 계정을 가로채는 길이 된다).
+/// 잇는 것은 로그인한 사람이 설정에서 직접 한다.
+model Account {
+  id                String       @id @default(cuid())
+  userId            String
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          AuthProvider
+  /// 제공자 안에서 바뀌지 않는 사용자 번호(Google sub, Kakao id, Naver id)
+  providerAccountId String
+  /// 연결할 때 제공자가 알려 준 이메일. 설정 화면에 보여 주기만 하고 로그인 판단에는 쓰지 않는다.
+  email             String?
+  createdAt         DateTime     @default(now())
+  lastUsedAt        DateTime?
+
+  @@unique([provider, providerAccountId])
+  @@unique([userId, provider])
+}
+
+/// 메일로 보내는 일회용 링크(이메일 확인·비밀번호 재설정·외부 로그인 가입 확인).
+/// 링크의 토큰은 저장하지 않고 SHA-256 만 둔다 — DB 가 새어도 링크를 만들어 낼 수 없다.
+model VerificationToken {
+  id        String       @id @default(cuid())
+  purpose   TokenPurpose
+  tokenHash String       @unique
+  /// 링크를 보낸 주소(소문자)
+  email     String
+  /// 이미 있는 사용자에 대한 것(확인·재설정). 가입 전(OAUTH_SIGNUP)에는 비어 있다.
+  userId    String?
+  user      User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 확인 뒤 이어서 할 일에 필요한 값(예: 연결할 제공자 계정). 서버만 쓰고 읽는다.
+  data      Json?
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime     @default(now())
+
+  @@index([userId, purpose])
+  @@index([email, purpose, createdAt])
+}
+
+/// 이 서버에 가입하라는 초대. 초대만 모드에서 가입하는 길이다.
+/// 목록·그룹 공유 초대(ShareInvite)와는 다르다 — 그것은 이미 가입한 사람을 목록에 들인다.
+model Invitation {
+  id          String    @id @default(cuid())
+  /// 링크 토큰의 SHA-256
+  tokenHash   String    @unique
+  /// 정해 두면 이 주소로만 가입된다(소문자). 비우면 링크를 가진 사람 누구나 한 번.
+  email       String?
+  createdById String?
+  createdBy   User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  /// 이 초대로 가입한 사람. 정보성이라 FK 없이 둔다.
+  usedById    String?
+  createdAt   DateTime  @default(now())
+
+  @@index([createdAt])
+}
+
+/// 설치 하나의 설정 — 한 행(id = "singleton")만 있다. 관리자가 화면에서 바꾸는 것만 둔다.
+/// 설치할 때 정하고 잘 안 바꾸는 것(기본 언어·시간대·공휴일)은 환경 변수다.
+model InstanceSettings {
+  id               String       @id @default("singleton")
+  /// 이 설치의 이름. 화면 제목·메일·PDF 에 나온다. 비어 있으면 APP_NAME 환경 변수, 그다음 기본 이름.
+  appName          String?
+  signupPolicy     SignupPolicy @default(INVITE_ONLY)
+  /// DOMAIN 정책에서 가입을 허용하는 도메인(소문자, "example.com")
+  allowedDomains   String[]     @default([])
+  /// 첫 관리자가 정해진 시각. 한 번 채워지면 다시 비우지 않는다 — 관리자 계정이 지워져도
+  /// 설치 직후의 "첫 관리자 만들기" 길이 다시 열리지 않게 하려는 것이다.
+  setupCompletedAt DateTime?
+  updatedAt        DateTime     @updatedAt
+}
+
+model Group {
+  id          String   @id @default(cuid())
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name        String
+  /// fractional index 문자열. 드래그 시 인접 두 값 사이만 갱신한다.
+  order       String
+  isCollapsed Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lists List[]
+
+  @@index([ownerId, order])
+}
+
+model List {
+  id            String     @id @default(cuid())
+  ownerId       String
+  owner         User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  groupId       String?
+  group         Group?     @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  name          String
+  themeKey      String     @default("blue")
+  backgroundKey String?
+  order         String
+  sortBy        ListSortBy @default(MANUAL)
+  showCompleted Boolean    @default(true)
+  /// 목록 행에 작업 일련번호(#1042)를 노출할지 여부
+  showSeq       Boolean    @default(false)
+  /// 사용자별 기본 목록("작업"). 사용자 생성 시 1개 자동 생성되며 삭제 불가.
+  isInbox       Boolean    @default(false)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  tasks Task[]
+
+  @@index([ownerId, order])
+  @@index([groupId, order])
+}
+
+model Task {
+  id String @id @default(cuid())
+
+  /// 전역 유일 일련번호. 딥링크 /t/{seq}의 키이며 삭제해도 재사용하지 않는다.
+  seq Int @unique @default(autoincrement())
+
+  listId String
+  list   List   @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  /// 작성자는 정보성 필드다. 공유 목록에 남긴 작업은 작성자 계정이 사라져도 남아야 하므로
+  /// 사용자 삭제 시 null 로 끊는다.
+  creatorId String?
+  creator   User?   @relation("TaskCreator", fields: [creatorId], references: [id], onDelete: SetNull)
+
+  /// 담당자. 목록에 접근할 수 있는 사람만 지정할 수 있고, 그 접근이 끊기면 함께 풀린다.
+  assigneeId String?
+  assignee   User?   @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  /// 미리 알림 시각. 지난 뒤 한 번 울리고 remindedAt 에 그 사실을 남긴다.
+  remindAt   DateTime?
+  /// 마지막으로 알림을 만든 시각. remindAt 을 바꾸면 null 로 되돌려 다시 울리게 한다.
+  remindedAt DateTime?
+
+  /// 반복 규칙. unit 이 null 이면 반복하지 않는다.
+  /// 시리즈를 미리 만들지 않고, 완료할 때 다음 하나를 만들며 규칙을 넘겨준다.
+  repeatUnit   RepeatUnit?
+  repeatEvery  Int         @default(1)
+  /// 주 단위일 때 반복할 요일 (0=일 … 6=토). 비면 기한 요일을 쓴다.
+  repeatDays   Int[]
+  /// 이 작업을 만들어 낸 앞 작업. 완료를 취소했을 때 되돌리는 데만 쓴다.
+  repeatFromId String?
+
+  title       String
+  note        String?
+  isImportant Boolean   @default(false)
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+  dueDate     DateTime? @db.Date
+  order       String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  steps         Step[]
+  myDayEntries  MyDayEntry[]
+  attachments   Attachment[]
+  notifications Notification[]
+
+  @@index([listId, order])
+  @@index([listId, isCompleted])
+  @@index([creatorId, isImportant, isCompleted])
+  @@index([assigneeId, isCompleted])
+  @@index([repeatFromId])
+  @@index([remindAt])
+  @@index([completedAt])
+  @@index([dueDate])
+}
+
+/// 알림 한 건.
+///
+/// 문구는 화면에서 만든다. 여기에는 무슨 일이 있었는지와 그 대상만 둔다 —
+/// 문구를 저장해 두면 나중에 말을 고칠 때 옛 알림만 옛말로 남는다.
+model Notification {
+  id        String           @id @default(cuid())
+  /// 받는 사람
+  userId    String
+  user      User             @relation("NotificationUser", fields: [userId], references: [id], onDelete: Cascade)
+  kind      NotificationKind
+  taskId    String?
+  task      Task?            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  listId    String?
+  /// 보고서에 관한 알림(예약 발송 실패)만 채운다. 보고서가 지워지면 알림도 함께 사라진다.
+  reportId  String?
+  report    WeeklyReport?    @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  /// 프로젝트에 관한 알림(멘션·초대)만 채운다. listId 와 달리 FK 를 둔 것은 의도다 —
+  /// 프로젝트나 메시지가 지워지면 알림도 함께 사라져야 열리지 않는 줄이 남지 않는다.
+  projectId String?
+  project   Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  messageId String?
+  message   Message?         @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  /// 그 일을 한 사람. 담당자 지정·공유·멘션·초대에 있다.
+  actorId   String?
+  actor     User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  /// 같은 일로 두 번 알리지 않기 위한 날짜 열쇠 ("YYYY-MM-DD").
+  dayKey    String
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  /// 같은 일로 두 번 알리지 않기 위한 조회용. taskId 가 null 일 수 있어
+  /// 유니크 제약으로는 못 막는다(Postgres 에서 NULL 은 서로 다르다) — 코드에서 확인한다.
+  @@index([userId, kind, taskId, dayKey])
+  @@index([userId, kind, messageId])
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+}
+
+/// 작업 또는 프로젝트 메시지에 붙인 파일. 둘 중 정확히 하나에 붙는다
+/// (마이그레이션의 CHECK "Attachment_owner_check" 가 지킨다).
+///
+/// 실제 내용은 디스크에 있고 여기에는 그 열쇠와 보여 줄 이름만 둔다.
+/// 디스크 파일 이름은 서버가 만든 storageKey 라서, 사용자가 준 이름으로
+/// 경로를 벗어날 방법이 없다.
+model Attachment {
+  id         String   @id @default(cuid())
+  taskId     String?
+  task       Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  messageId  String?
+  message    Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  /// 올린 사람. 계정이 사라져도 파일은 남는다.
+  uploaderId String?
+  uploader   User?    @relation("AttachmentUploader", fields: [uploaderId], references: [id], onDelete: SetNull)
+  /// 화면에 보여 줄 원래 이름
+  name       String
+  size       Int
+  mimeType   String
+  /// 디스크의 파일 이름. 확장자 없이 id 만 쓴다.
+  storageKey String   @unique
+  createdAt  DateTime @default(now())
+
+  @@index([taskId, createdAt])
+  @@index([messageId])
+}
+
+/// "나의 하루"는 사람마다 다르다. 공유 목록의 같은 작업을 두 사람이 각자
+/// 자기 하루에 올릴 수 있어야 하므로 Task 컬럼이 아니라 별도 행으로 둔다.
+model MyDayEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  /// 올린 날짜. 오늘이 아니면 [오늘 할 일]에서 자동으로 빠진다.
+  date      DateTime @db.Date
+  createdAt DateTime @default(now())
+
+  @@unique([userId, taskId])
+  @@index([userId, date])
+}
+
+model Step {
+  id          String   @id @default(cuid())
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  title       String
+  isCompleted Boolean  @default(false)
+  order       String
+  createdAt   DateTime @default(now())
+
+  @@index([taskId, order])
+}
+
+/// 그룹/목록 공유 권한. subjectId는 다형 참조라 FK가 없으므로
+/// 그룹·목록 삭제 시 애플리케이션 코드에서 함께 정리한다.
+model Share {
+  id            String           @id @default(cuid())
+  subjectType   ShareSubjectType
+  subjectId     String
+  granteeUserId String
+  grantee       User             @relation("ShareGrantee", fields: [granteeUserId], references: [id], onDelete: Cascade)
+  role          ShareRole        @default(VIEWER)
+  invitedById   String?
+  invitedBy     User?            @relation("ShareInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@unique([subjectType, subjectId, granteeUserId])
+  @@index([granteeUserId])
+  @@index([subjectType, subjectId])
+}
+
+model ShareInvite {
+  id          String           @id @default(cuid())
+  token       String           @unique
+  subjectType ShareSubjectType
+  subjectId   String
+  role        ShareRole        @default(VIEWER)
+  createdById String
+  createdBy   User             @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime         @default(now())
+
+  @@index([subjectType, subjectId])
+}
+
+model WeeklyReport {
+  id       String @id @default(cuid())
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  /// 해당 주의 월요일 (작성자 시간대 기준)
+  weekStart   DateTime  @db.Date
+  title       String
+  summary     String    @default("")
+  /// 집계 대상 그룹/목록 선택 상태
+  scopeJson   Json      @default("{}")
+  /// 발행 시점에 고정되는 스냅샷. 발행 전에는 null.
+  ///
+  /// 공개 링크(publicToken)는 없앴다. 로그인 없이 열리는 주소는 한 번 새어 나가면
+  /// 회수할 방법이 없어서, 보고서는 앱 안에서 Share(REPORT)로 공유하고
+  /// 밖으로는 메일 본문으로만 나간다.
+  contentJson Json?
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  sends         ReportSend[]
+  notifications Notification[]
+
+  @@unique([authorId, weekStart])
+}
+
+model ReportSend {
+  id          String           @id @default(cuid())
+  reportId    String
+  report      WeeklyReport     @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  toEmails    String[]
+  subject     String
+  status      ReportSendStatus
+  errorMsg    String?
+  /// 지금 보낸 것은 보낸 시각, 예약은 만든 시각이다. 예약이 나가면 보낸 시각으로 바뀐다.
+  sentAt      DateTime         @default(now())
+  /// 예약 시각. 지금 보낸 것은 비어 있다.
+  scheduledAt DateTime?
+  /// 예약할 때 정한 PDF 첨부 여부. 지금 보낸 것은 요청에 실려 오므로 기록만 한다.
+  attachPdf   Boolean          @default(false)
+  /// 예약 발송을 시도한 횟수. 3번 실패하면 멈춘다.
+  attempts    Int              @default(0)
+
+  @@index([reportId])
+  /// 5분마다 "보낼 때가 된 예약"을 찾는다.
+  @@index([status, scheduledAt])
+}
+
+/// 프로젝트 — 슬랙 채널 같은 대화 공간. 작업·목록과 별개이며, 메시지에서 #1042 로 작업을 가리킬 수 있다.
+///
+/// 멤버십은 Share 가 아니라 ProjectMember 다. Share.subjectId 에는 FK 가 없어 삭제 정리를 손으로
+/// 해야 하고, 읽은 위치처럼 멤버마다 다른 값을 둘 자리도 없다.
+model Project {
+  id         String    @id @default(cuid())
+  name       String
+  /// 한 줄 목적. 디렉터리 카드와 머리글에 보여 준다.
+  purpose    String    @default("")
+  /// 공개: 이 서버의 누구나 디렉터리에서 찾아 참여. 비공개: 초대만, 비멤버에게는 존재도 보이지 않는다.
+  /// 공개라도 읽으려면 참여해야 한다 — 비멤버에게 역할을 주면 알림·안 읽음 규칙이 흔들린다.
+  /// 기본은 비공개 — 누구나 가입하는 설치에서는 공개가 곧 외부 공개다.
+  isPublic   Boolean   @default(false)
+  ownerId    String
+  owner      User      @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  /// 보관되면 읽기 전용. 소유자가 되돌릴 수 있다.
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  members       ProjectMember[]
+  messages      Message[]
+  notifications Notification[]
+
+  @@index([isPublic, archivedAt])
+}
+
+/// 멤버 한 사람. 소유자도 ADMIN 행을 가진다 — "행이 있으면 멤버" 하나로 통한다.
+model ProjectMember {
+  id          String      @id @default(cuid())
+  projectId   String
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        ProjectRole @default(MEMBER)
+  /// 넣어 준 사람. 정보성이라 FK 없이 둔다(Notification.listId 와 같은 방식).
+  invitedById String?
+  /// 마지막으로 읽은 원글의 seq. 안 읽음 = 이보다 큰 seq 의 남의 원글 수.
+  /// 참여할 때 그 시점의 최대 seq 로 채워, 지난 글 전부가 안 읽음으로 잡히지 않게 한다.
+  lastReadSeq Int         @default(0)
+  joinedAt    DateTime    @default(now())
+
+  @@unique([projectId, userId])
+  @@index([userId])
+}
+
+/// 프로젝트 메시지. 원글이거나(parentId null) 원글의 답글이다 — 답글의 답글은 없다.
+model Message {
+  id          String    @id @default(cuid())
+  /// 전역 일련번호. 순서·페이지 커서·안 읽음 계산의 기준(Task.seq 와 같은 수법).
+  seq         Int       @unique @default(autoincrement())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  /// 글쓴이는 정보성이다. 계정이 사라져도 글은 남는다.
+  authorId    String?
+  author      User?     @relation("MessageAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  parentId    String?
+  parent      Message?  @relation("Thread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     Message[] @relation("Thread")
+  body        String
+  /// @전체 를 썼는지. 멤버 수만큼 행을 만들지 않는다.
+  mentionsAll Boolean   @default(false)
+  editedAt    DateTime?
+  /// 소프트 삭제. 지울 때 body 는 "" 로 비운다 — 지운 내용을 DB 에 남기지 않는다.
+  /// 행을 남기는 것은 답글 달린 원글의 자리를 지키고, 폴링이 "바뀐 것"으로 알아채게 하려는 것이다.
+  deletedAt   DateTime?
+  /// 원글만 고정할 수 있다.
+  pinnedAt    DateTime?
+  pinnedById  String?
+  createdAt   DateTime  @default(now())
+  /// 폴링 커서. 수정·삭제·고정도 이 값을 움직여 열린 화면에 닿는다.
+  updatedAt   DateTime  @updatedAt
+
+  mentions      MessageMention[]
+  attachments   Attachment[]
+  notifications Notification[]
+
+  @@index([projectId, parentId, seq])
+  @@index([projectId, updatedAt])
+  @@index([projectId, pinnedAt])
+  @@index([parentId, seq])
+}
+
+/// 메시지가 부른 사람. 본문의 <@userId> 토큰을 저장할 때 풀어 둔다 — 알림과 강조 표시가 여기서 나온다.
+model MessageMention {
+  id        String  @id @default(cuid())
+  messageId String
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([userId])
+}

@@ -1,0 +1,63 @@
+{
+  "title": "Calendar",
+  "prevMonth": "Previous month",
+  "nextMonth": "Next month",
+  "today": "Today",
+  "close": "Close",
+  "clear": "Clear",
+  "collapse": "Collapse",
+  "expand": "Expand",
+  "allLists": "All lists",
+  "hiddenLists": "{count, plural, one {# list hidden} other {# lists hidden}}",
+  "showDone": "Show completed",
+  "dayWithHoliday": "{date} {holiday}",
+  "dayWithTasks": "{day}, {count, plural, one {# task} other {# tasks}}",
+  "dayTasks": "{date} tasks",
+  "taskCount": "{count, plural, one {# task} other {# tasks}}",
+  "emptyDay": "Nothing is due on this day.",
+  "more": "+{count} more",
+  "complete": "Mark {title} complete",
+  "uncomplete": "Mark {title} not complete",
+  "chipTitle": "{title} — {where}",
+  "nextRepeat": "Next repeat · {where}",
+  "overdue": {
+    "title": "Overdue",
+    "count": "{count, plural, one {# overdue task} other {# overdue tasks}}",
+    "countMore": "{count}+ overdue tasks",
+    "oldest": "· oldest {date}",
+    "late": "{date} · {days, plural, one {# day late} other {# days late}}"
+  },
+  "add": {
+    "on": "Add a task on {date}",
+    "onThisDay": "Add a task on this day",
+    "title": "Add a task on {date}",
+    "taskName": "Task name",
+    "list": "List",
+    "submit": "Add",
+    "hint": "Enter adds and keeps typing · Esc closes"
+  },
+  "filter": {
+    "title": "Lists to show",
+    "viewOnly": "View only",
+    "showAll": "Show all"
+  },
+  "holidays": {
+    "newYear": "New Year's Day",
+    "seollal": "Korean New Year",
+    "seollalHoliday": "Korean New Year holiday",
+    "independenceMovement": "Independence Movement Day",
+    "substitute": "Substitute holiday",
+    "labor": "Labor Day",
+    "children": "Children's Day",
+    "buddha": "Buddha's Birthday",
+    "localElection": "Local elections",
+    "memorial": "Memorial Day",
+    "constitution": "Constitution Day",
+    "liberation": "Liberation Day",
+    "chuseok": "Chuseok",
+    "chuseokHoliday": "Chuseok holiday",
+    "nationalFoundation": "National Foundation Day",
+    "hangul": "Hangul Day",
+    "christmas": "Christmas"
+  }
+}

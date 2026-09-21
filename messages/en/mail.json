@@ -1,0 +1,32 @@
+{
+  "fallback": "If the button doesn't work, paste this address into your browser:",
+  "verify": {
+    "subject": "[{app}] Confirm your email address",
+    "heading": "Welcome, {name}.",
+    "body": "Press the button below to finish signing up.",
+    "button": "Confirm email",
+    "note": "The link works for 24 hours. If you didn't sign up, you can ignore this email — no account is created until the address is confirmed."
+  },
+  "reset": {
+    "subject": "[{app}] Reset your password",
+    "heading": "Reset your password",
+    "body": "Someone (hopefully you) asked to reset your password. Press the button to choose a new one.",
+    "button": "Choose a new password",
+    "note": "The link works once, for 30 minutes. If you didn't ask for this, ignore this email — your password stays the same.",
+    "providers": "You can also sign in to this account with {providers}."
+  },
+  "existing": {
+    "subject": "[{app}] You already have an account",
+    "heading": "You already have an account",
+    "body": "Someone tried to sign up with this address. You already have an account, so you can just sign in.",
+    "button": "Sign in",
+    "note": "If you've forgotten your password, use 'Forgot password?' on the sign-in page. If this wasn't you, you can ignore this email."
+  },
+  "invite": {
+    "subject": "[{app}] You're invited",
+    "heading": "You're invited to {app}",
+    "body": "{name} invited you to {app}. Press the button below to create your account.",
+    "button": "Create account",
+    "note": "The link works once and expires after the period shown. If you weren't expecting this, you can ignore it."
+  }
+}

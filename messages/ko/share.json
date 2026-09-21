@@ -1,0 +1,50 @@
+{
+  "roles": {
+    "VIEWER": "읽기 전용",
+    "EDITOR": "편집 가능",
+    "ADMIN": "관리"
+  },
+  "subject": {
+    "GROUP": "그룹",
+    "LIST": "목록",
+    "REPORT": "보고서"
+  },
+  "dialogTitle": "{subject} 공유",
+  "dialogTitleNamed": "{subject} 공유 — {name}",
+  "loading": "불러오는 중…",
+  "close": "닫기",
+  "inherited": "이 목록은 <b>{group}</b> 그룹에 속해 있습니다. 그룹에 준 권한이 이 목록에도 그대로 적용되며, 여기서 준 권한이 더 높으면 그쪽이 우선합니다.",
+  "addUser": "사용자 추가",
+  "searchPlaceholder": "이름 또는 이메일로 검색",
+  "noResults": "찾는 사용자가 없습니다. 아직 {app}에 한 번도 로그인하지 않은 사람은 검색되지 않습니다. 아래 <b>초대 링크</b>를 보내 주세요.",
+  "membersCount": "공유 중인 사용자 {count}명",
+  "me": "(나)",
+  "owner": "소유자",
+  "remove": "공유 해제",
+  "inviteLink": "초대 링크",
+  "createLink": "링크 만들기",
+  "copy": "복사",
+  "revoke": "폐기",
+  "linkNote": "링크를 아는 사람은 <b>{role}</b> 권한으로 참여합니다. {date} 까지 유효",
+  "linkUsed": "사용된 적 있음",
+  "onlyAdmins": "공유 설정은 관리 권한이 있는 사람만 바꿀 수 있습니다.",
+  "copied": "초대 링크를 복사했습니다.",
+  "copyFailed": "복사 실패. 주소: {url}",
+  "loadFailed": "공유 정보를 불러오지 못했습니다.",
+  "invite": {
+    "navTitle": "초대",
+    "invalidTitle": "초대 링크를 쓸 수 없습니다",
+    "invalidBody": "링크가 만료되었거나 폐기되었습니다. 공유한 사람에게 새 링크를 요청하세요.",
+    "heading": "{subject} 초대",
+    "bodyGroup": "<b>{inviter}</b> 님이 <b>{name}</b> 그룹을 <b>{role}</b> 권한으로 공유했습니다.",
+    "bodyList": "<b>{inviter}</b> 님이 <b>{name}</b> 목록을 <b>{role}</b> 권한으로 공유했습니다.",
+    "join": "참여하기",
+    "toCalendar": "달력으로 이동"
+  },
+  "errors": {
+    "ownerRole": "소유자에게는 권한을 다시 줄 수 없습니다.",
+    "inviteInvalid": "초대 링크가 만료되었거나 존재하지 않습니다.",
+    "badRequest": "잘못된 요청입니다.",
+    "notFound": "찾을 수 없거나 접근 권한이 없습니다."
+  }
+}

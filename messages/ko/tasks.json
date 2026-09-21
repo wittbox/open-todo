@@ -1,0 +1,154 @@
+{
+  "addTask": "작업 추가",
+  "moreOptions": "추가 옵션",
+  "shareList": "목록 공유",
+  "changeTheme": "테마 변경",
+  "changeThemeDenied": "테마 변경 (권한 없음)",
+  "themeListOnly": "테마 변경은 목록에서만 지원합니다",
+  "noPermission": "권한 없음",
+  "sharedWith": "공유됨 {count}명",
+  "readOnlyList": "읽기 전용으로 공유받은 목록입니다",
+  "emptyList": "아직 작업이 없습니다. 아래에서 추가하세요.",
+  "completedCount": "완료됨 {count}",
+  "sort": {
+    "MANUAL": "직접 정렬",
+    "IMPORTANCE": "중요도",
+    "DUE_DATE": "기한",
+    "ALPHABETICAL": "가나다순",
+    "CREATED_AT": "만든 날짜"
+  },
+  "menu": {
+    "sortBy": "정렬 기준: {name}",
+    "showCompleted": "완료된 작업 표시",
+    "hideCompleted": "완료된 작업 숨기기",
+    "showSeq": "일련번호 표시",
+    "hideSeq": "일련번호 숨기기",
+    "print": "목록 인쇄",
+    "mail": "전자 메일로 목록 보내기",
+    "phase7": "7단계"
+  },
+  "theme": {
+    "title": "테마",
+    "hint": "배경 사진은 자산 준비 후 추가합니다.",
+    "blue": "파랑",
+    "purple": "보라",
+    "red": "빨강",
+    "green": "초록",
+    "teal": "청록",
+    "pink": "분홍"
+  },
+  "background": {
+    "tower": "타워",
+    "forest": "숲",
+    "desk": "책상"
+  },
+  "row": {
+    "complete": "완료로 표시",
+    "uncomplete": "완료 취소",
+    "important": "중요로 표시",
+    "unimportant": "중요 해제"
+  },
+  "path": {
+    "sharedBy": "{name} 공유",
+    "readOnly": "읽기 전용",
+    "goToList": "{path} — 이 목록으로 가기"
+  },
+  "notFound": {
+    "metaTitle": "찾을 수 없음",
+    "title": "해당 항목을 찾을 수 없거나 접근 권한이 없습니다",
+    "body": "주소가 정확한지 확인해 주세요. 다른 사람의 목록이라면 소유자에게 공유를 요청해야 합니다.",
+    "home": "달력으로 이동"
+  },
+  "assigned": {
+    "title": "나에게 할당됨",
+    "emptyLine1": "나를 담당자로 지정한 작업이 여기에 모입니다.",
+    "emptyLine2": "작업 상세에서 할당 대상을 정할 수 있습니다."
+  },
+  "detail": {
+    "close": "닫기",
+    "copyLink": "링크 복사",
+    "copied": "딥링크를 복사했습니다 — {url}",
+    "copyFailed": "복사에 실패했습니다. 주소: {url}",
+    "stepComplete": "단계 완료",
+    "stepUncomplete": "단계 완료 취소",
+    "deleteStep": "단계 삭제",
+    "nextStep": "다음 단계",
+    "remind": "미리 알림",
+    "remindAt": "알림 {when}",
+    "setDue": "기한 설정",
+    "dueAt": "기한 {date}",
+    "repeat": "반복",
+    "assign": "할당 대상",
+    "addFile": "파일 추가",
+    "uploading": "올리는 중… {name}",
+    "uploadFailed": "파일을 올리지 못했습니다.",
+    "dropHint": "여기로 파일을 끌어다 놓거나 <b>Ctrl+V</b> 로 붙여넣기",
+    "deleteAttachment": "첨부 삭제",
+    "notePlaceholder": "메모 추가",
+    "createdOn": "{date}에 생성됨",
+    "deleteTask": "작업 삭제",
+    "confirmDelete": "'{title}' 작업을 삭제합니다. 되돌릴 수 없습니다.",
+    "clear": "지우기"
+  },
+  "due": {
+    "today": "오늘",
+    "tomorrow": "내일",
+    "nextWeek": "다음 주",
+    "clear": "기한 지우기"
+  },
+  "reminder": {
+    "todayEvening": "오늘 오후 6시",
+    "tomorrowMorning": "내일 아침 9시",
+    "dueDayMorning": "기한 당일 아침 9시",
+    "dayBeforeMorning": "기한 하루 전 아침 9시",
+    "time": "시각"
+  },
+  "repeat": {
+    "daily": "매일",
+    "everyDays": "{every}일마다",
+    "weekdays": "평일",
+    "weeklyOn": "매주 {days}",
+    "everyWeeksOn": "{every}주마다 {days}",
+    "monthly": "매월 {day}일",
+    "everyMonths": "{every}개월마다 {day}일",
+    "yearly": "매년 {date}",
+    "everyYears": "{every}년마다 {date}",
+    "custom": "사용자 지정",
+    "pickDay": "요일을 하나 이상 고르세요",
+    "save": "저장",
+    "unit": {
+      "DAY": "일마다",
+      "WEEK": "주마다",
+      "MONTH": "개월마다",
+      "YEAR": "년마다"
+    }
+  },
+  "assignee": {
+    "search": "이름 또는 메일로 찾기",
+    "loading": "불러오는 중…",
+    "none": "해당하는 사람이 없습니다.",
+    "owner": "소유자",
+    "VIEWER": "읽기",
+    "EDITOR": "편집",
+    "ADMIN": "관리"
+  },
+  "defaults": {
+    "list": "제목 없는 목록",
+    "group": "제목 없는 그룹",
+    "step": "새 단계",
+    "copy": "{name} (복사본)",
+    "inbox": "작업"
+  },
+  "errors": {
+    "emptyTitle": "빈 제목으로는 작업을 만들 수 없습니다.",
+    "badTime": "시각을 읽지 못했습니다.",
+    "taskNotFound": "작업을 찾을 수 없습니다.",
+    "assigneeNoAccess": "그 목록을 볼 수 없는 사람은 담당자로 지정할 수 없습니다.",
+    "attachmentDeleteDenied": "올린 사람 또는 관리자만 지울 수 있습니다.",
+    "inboxUndeletable": "기본 목록은 삭제할 수 없습니다.",
+    "notFoundOrForbidden": "찾을 수 없거나 접근 권한이 없습니다.",
+    "uploadForbidden": "이 목록에는 파일을 올릴 수 없습니다.",
+    "noFile": "파일이 없습니다.",
+    "tooManyFiles": "작업 하나에 {max}개까지 붙일 수 있습니다."
+  }
+}

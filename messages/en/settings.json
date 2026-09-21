@@ -1,0 +1,44 @@
+{
+  "title": "Settings",
+  "profile": {
+    "title": "About you",
+    "name": "Name",
+    "department": "Team",
+    "departmentHint": "Shown in report titles and when people pick colleagues.",
+    "locale": "Language",
+    "timeZone": "Time zone",
+    "dailyMail": "Morning digest email",
+    "dailyMailHint": "Sent at 8am on weekdays, in your own time zone.",
+    "save": "Save",
+    "saved": "Saved."
+  },
+  "login": {
+    "title": "Sign-in methods",
+    "password": "Password",
+    "change": "Change",
+    "set": "Create a password",
+    "notLinked": "Not connected",
+    "link": "Connect",
+    "unlink": "Disconnect",
+    "lastMethodHint": "You can't remove your last sign-in method. Add another one first.",
+    "signOutAll": "Sign out everywhere",
+    "signOutAllHint": "Every other device is signed out; this window stays.",
+    "signedOutAll": "Signed out on your other devices."
+  },
+  "password": {
+    "title": "Change your password",
+    "current": "Current password",
+    "next": "New password",
+    "confirm": "Confirm password",
+    "warning": "Your other devices will be signed out.",
+    "submit": "Change password",
+    "changed": "Password changed."
+  },
+  "errors": {
+    "badLocale": "That language isn't available.",
+    "badTimeZone": "That time zone isn't available.",
+    "wrongPassword": "That current password isn't right.",
+    "notLinked": "That account isn't connected.",
+    "lastMethod": "You can't remove your last sign-in method. Create a password first."
+  }
+}

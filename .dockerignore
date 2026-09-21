@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.github
+tmp
+data
+.env
+.env.*
+!.env.example
+npm-debug.log*
+*.tsbuildinfo
+README*.md
+# Tests don't belong in the image, and next build would try to type-check them.
+tests
+vitest.config.ts

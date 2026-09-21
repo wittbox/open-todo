@@ -1,0 +1,153 @@
+{
+  "title": "주간업무보고서",
+  "navTitle": "주간보고서",
+  "sections": {
+    "done": "이번 주 완료",
+    "inProgress": "진행 중",
+    "upcoming": "예정"
+  },
+  "reasons": {
+    "step": "단계 진척",
+    "myday": "나의 하루",
+    "due": "이번 주 기한",
+    "future": "이후 기한",
+    "overdue": "기한 지남",
+    "new": "이번 주 신규",
+    "manual": "직접 옮김"
+  },
+  "defaultTitle": "주간업무보고 - {who} {date}",
+  "page": {
+    "lead": "접근 권한이 있는 목록의 작업을 주 단위로 모읍니다. 월요일 00:00 ~ 일요일 24:00 기준.",
+    "pickWeek": "주차 선택",
+    "thisWeek": "이번 주",
+    "lastWeek": "지난 주",
+    "notCreated": "아직 만들지 않음",
+    "published": "발행됨",
+    "mine": "만든 보고서 {count}개",
+    "noneMine": "아직 만든 보고서가 없습니다. 위에서 주차를 고르세요.",
+    "publishedAt": "발행 {date}",
+    "sharedCount": "공유 {count}명",
+    "sendCount": "발송 {count}회",
+    "sharedWithMe": "나에게 공유된 보고서 {count}개",
+    "noneShared": "공유받은 보고서가 없습니다. 작성자가 발행한 뒤 공유해야 여기에 나타납니다.",
+    "readOnly": "읽기 전용"
+  },
+  "editor": {
+    "draft": "초안",
+    "publishedOn": "발행됨 · {date}",
+    "share": "공유",
+    "shareTitle": "구성원에게 공유",
+    "shareAfterPublish": "발행한 뒤에 공유할 수 있습니다",
+    "republishConfirm": "지금 내용으로 다시 굳힙니다. 이전 발행본은 대체됩니다.",
+    "publishedToast": "발행했습니다. 이후 작업이 바뀌어도 이 보고서는 그대로입니다.",
+    "publish": "발행",
+    "republish": "다시 발행",
+    "sendMail": "메일 보내기",
+    "sendTitle": "메일 보내기",
+    "sendAfterPublish": "발행한 뒤에 보낼 수 있습니다",
+    "excluded": "제외한 항목 {count}",
+    "restore": "되돌리기",
+    "sendHistory": "발송 이력",
+    "titleLabel": "제목",
+    "summaryLabel": "요약",
+    "summaryPlaceholder": "이번 주 핵심을 두세 줄로",
+    "scopeLabel": "집계 범위",
+    "noGroups": "해당 주에 작업이 있는 그룹이 없습니다.",
+    "all": "전체",
+    "publishNote": "<b>발행</b>하면 이 시점의 내용이 그대로 고정됩니다. 이후 작업을 고쳐도 보고서와 공개 링크는 바뀌지 않습니다.",
+    "unpublishConfirm": "발행을 취소합니다. 공유받은 사람도 더 이상 볼 수 없습니다.",
+    "unpublish": "발행 취소"
+  },
+  "send": {
+    "aria": "보고서 메일 보내기",
+    "title": "메일 보내기",
+    "warnNow": "보내고 나면 취소할 수 없습니다. 수신자를 확인하세요.",
+    "warnSchedule": "예약은 보내기 전까지 발송 이력에서 취소할 수 있습니다.",
+    "toLabel": "받는 사람 (쉼표 또는 줄바꿈으로 구분)",
+    "toPlaceholder": "이름 또는 메일 앞부분을 입력하세요",
+    "subjectLine": "제목:",
+    "bodyLine": "본문: {range} · 작업 {count}건",
+    "attachPdf": "본문을 PDF 로도 첨부",
+    "now": "지금",
+    "schedule": "예약",
+    "timeAria": "예약 시각",
+    "scheduleNote": "예약한 시각에 <b>그때의 발행본</b>으로 보냅니다. 그 전에 다시 발행하면 새 내용이 나갑니다.",
+    "cancel": "취소",
+    "sending": "보내는 중…",
+    "scheduling": "예약하는 중…",
+    "scheduleSubmit": "{when} 에 {count}명에게 예약",
+    "sendSubmit": "{count}명에게 보내기",
+    "scheduledToast": "{when} 에 {count}명에게 보내도록 예약했습니다.",
+    "mockToast": "목 발송했습니다. tmp/mail 에서 본문을 확인하세요.",
+    "sentToast": "{count}명에게 보냈습니다."
+  },
+  "status": {
+    "SCHEDULED": "예약",
+    "SENDING": "보내는 중",
+    "SENT": "발송",
+    "FAILED": "실패",
+    "CANCELED": "취소됨"
+  },
+  "share": {
+    "aria": "보고서 공유",
+    "title": "보고서 공유",
+    "close": "닫기",
+    "note": "공유받은 사람은 <b>발행된 내용을 읽기만</b> 합니다. 편집·발송·재공유는 작성자만 할 수 있습니다. 발행을 취소하면 열람도 함께 닫힙니다.",
+    "addUser": "사용자 추가",
+    "searchPlaceholder": "이름 또는 이메일로 검색",
+    "noResults": "찾는 사용자가 없습니다. 아직 {app} 에 한 번도 로그인하지 않은 사람은 검색되지 않습니다.",
+    "sharingCount": "공유 중 {count}명",
+    "noneShared": "아직 공유하지 않았습니다.",
+    "unshare": "공유 해제"
+  },
+  "shared": {
+    "title": "주간보고서",
+    "badge": "공유받은 보고서 · 읽기 전용",
+    "publishedNote": "{date} 에 발행된 내용입니다. 이후 작업이 바뀌어도 이 보고서는 그대로입니다.",
+    "deepLinkNote": "작업 번호의 원본을 보려면 해당 목록을 따로 공유받아야 합니다."
+  },
+  "body": {
+    "empty": "이번 주에 해당하는 작업이 없습니다.",
+    "count": "{count}건",
+    "editTitle": "눌러서 고치기",
+    "commentPlaceholder": "코멘트 — Enter 로 저장, Esc 로 취소",
+    "moveToUpcoming": "예정으로",
+    "moveToInProgress": "진행 중으로",
+    "comment": "코멘트",
+    "excludeAria": "보고서에서 빼기",
+    "exclude": "제외"
+  },
+  "mail": {
+    "footerNote": "이 메일은 발행 시점의 내용입니다. 작업 번호(#1042)는 {app} 앱의 작업을 가리키며, 상세 내용은 앱에서 해당 목록에 접근 권한이 있는 사람이 볼 수 있습니다.",
+    "sentBy": "{name} 님이 {app} 에서 보냈습니다.",
+    "issued": "{app} · {date} 발행"
+  },
+  "pdf": {
+    "fileName": "주간업무보고_{who}_{date}.pdf",
+    "author": "작성자"
+  },
+  "errors": {
+    "notFound": "찾을 수 없거나 접근 권한이 없습니다.",
+    "publishFirst": "발행한 뒤에 보낼 수 있습니다.",
+    "noRecipients": "받는 사람을 입력해 주세요.",
+    "badEmails": "이메일 형식이 아닙니다: {list}",
+    "pdfFailedSend": "PDF 를 만들지 못했습니다. 'PDF 로도 첨부'를 끄면 본문만 보낼 수 있습니다.",
+    "sendFailed": "발송에 실패했습니다.",
+    "requestFailed": "발송 요청이 실패했습니다.",
+    "unpublished": "발행이 취소되어 보내지 않았습니다.",
+    "pdfFailed": "PDF 를 만들지 못했습니다.",
+    "cannotShareAuthor": "작성자에게는 다시 공유할 수 없습니다.",
+    "scheduleCanceled": "예약을 취소했습니다.",
+    "scheduleInvalid": "예약 시각이 올바르지 않습니다.",
+    "scheduleStep": "예약은 {step}분 단위로만 할 수 있습니다.",
+    "scheduleLead": "지금부터 {minutes}분 뒤부터 예약할 수 있습니다.",
+    "scheduleTooFar": "{days}일 안으로만 예약할 수 있습니다."
+  },
+  "history": {
+    "fromSchedule": "{when} 예약분",
+    "withPdf": "PDF 첨부",
+    "retrying": "한 번 실패해 곧 다시 시도합니다 — {error}",
+    "cancelSchedule": "예약 취소"
+  },
+  "ungrouped": "그룹 없는 목록"
+}

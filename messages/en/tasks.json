@@ -1,0 +1,154 @@
+{
+  "addTask": "Add a task",
+  "moreOptions": "More options",
+  "shareList": "Share list",
+  "changeTheme": "Change theme",
+  "changeThemeDenied": "Change theme (no permission)",
+  "themeListOnly": "Themes can only be changed on a list",
+  "noPermission": "No permission",
+  "sharedWith": "Shared with {count, plural, one {# person} other {# people}}",
+  "readOnlyList": "This list was shared with you as read-only",
+  "emptyList": "No tasks yet. Add one below.",
+  "completedCount": "Completed {count}",
+  "sort": {
+    "MANUAL": "Custom order",
+    "IMPORTANCE": "Importance",
+    "DUE_DATE": "Due date",
+    "ALPHABETICAL": "Alphabetical",
+    "CREATED_AT": "Creation date"
+  },
+  "menu": {
+    "sortBy": "Sort by: {name}",
+    "showCompleted": "Show completed tasks",
+    "hideCompleted": "Hide completed tasks",
+    "showSeq": "Show task numbers",
+    "hideSeq": "Hide task numbers",
+    "print": "Print list",
+    "mail": "Send list by email",
+    "phase7": "Phase 7"
+  },
+  "theme": {
+    "title": "Theme",
+    "hint": "Background photos will be added once the assets are ready.",
+    "blue": "Blue",
+    "purple": "Purple",
+    "red": "Red",
+    "green": "Green",
+    "teal": "Teal",
+    "pink": "Pink"
+  },
+  "background": {
+    "tower": "Tower",
+    "forest": "Forest",
+    "desk": "Desk"
+  },
+  "row": {
+    "complete": "Mark as complete",
+    "uncomplete": "Mark as not complete",
+    "important": "Mark as important",
+    "unimportant": "Remove importance"
+  },
+  "path": {
+    "sharedBy": "Shared by {name}",
+    "readOnly": "Read-only",
+    "goToList": "{path} — go to this list"
+  },
+  "notFound": {
+    "metaTitle": "Not found",
+    "title": "This item doesn't exist or you don't have access to it",
+    "body": "Check that the address is right. If the list belongs to someone else, ask the owner to share it with you.",
+    "home": "Go to calendar"
+  },
+  "assigned": {
+    "title": "Assigned to me",
+    "emptyLine1": "Tasks assigned to you collect here.",
+    "emptyLine2": "You can pick an assignee in the task details."
+  },
+  "detail": {
+    "close": "Close",
+    "copyLink": "Copy link",
+    "copied": "Link copied — {url}",
+    "copyFailed": "Couldn't copy. The address is {url}",
+    "stepComplete": "Complete step",
+    "stepUncomplete": "Mark step as not complete",
+    "deleteStep": "Delete step",
+    "nextStep": "Next step",
+    "remind": "Remind me",
+    "remindAt": "Reminder {when}",
+    "setDue": "Add due date",
+    "dueAt": "Due {date}",
+    "repeat": "Repeat",
+    "assign": "Assign to",
+    "addFile": "Add file",
+    "uploading": "Uploading… {name}",
+    "uploadFailed": "Couldn't upload the file.",
+    "dropHint": "Drop files here, or paste with <b>Ctrl+V</b>",
+    "deleteAttachment": "Delete attachment",
+    "notePlaceholder": "Add a note",
+    "createdOn": "Created {date}",
+    "deleteTask": "Delete task",
+    "confirmDelete": "Delete the task '{title}'. This can't be undone.",
+    "clear": "Clear"
+  },
+  "due": {
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "nextWeek": "Next week",
+    "clear": "Clear due date"
+  },
+  "reminder": {
+    "todayEvening": "Today at 6 PM",
+    "tomorrowMorning": "Tomorrow at 9 AM",
+    "dueDayMorning": "On the due date at 9 AM",
+    "dayBeforeMorning": "A day before the due date at 9 AM",
+    "time": "Time"
+  },
+  "repeat": {
+    "daily": "Daily",
+    "everyDays": "Every {every} days",
+    "weekdays": "Weekdays",
+    "weeklyOn": "Weekly on {days}",
+    "everyWeeksOn": "Every {every} weeks on {days}",
+    "monthly": "Monthly on day {day}",
+    "everyMonths": "Every {every} months on day {day}",
+    "yearly": "Yearly on {date}",
+    "everyYears": "Every {every} years on {date}",
+    "custom": "Custom",
+    "pickDay": "Pick at least one day",
+    "save": "Save",
+    "unit": {
+      "DAY": "days",
+      "WEEK": "weeks",
+      "MONTH": "months",
+      "YEAR": "years"
+    }
+  },
+  "assignee": {
+    "search": "Search by name or email",
+    "loading": "Loading…",
+    "none": "No one matches.",
+    "owner": "Owner",
+    "VIEWER": "Viewer",
+    "EDITOR": "Editor",
+    "ADMIN": "Admin"
+  },
+  "defaults": {
+    "list": "Untitled list",
+    "group": "Untitled group",
+    "step": "New step",
+    "copy": "{name} (copy)",
+    "inbox": "Tasks"
+  },
+  "errors": {
+    "emptyTitle": "A task needs a title.",
+    "badTime": "That time couldn't be read.",
+    "taskNotFound": "Task not found.",
+    "assigneeNoAccess": "You can't assign someone who can't see the list.",
+    "attachmentDeleteDenied": "Only the uploader or an admin can delete this.",
+    "inboxUndeletable": "The default list can't be deleted.",
+    "notFoundOrForbidden": "Not found, or you don't have access to it.",
+    "uploadForbidden": "You can't upload files to this list.",
+    "noFile": "No file was sent.",
+    "tooManyFiles": "You can attach up to {max} files to one task."
+  }
+}

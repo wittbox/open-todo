@@ -1,0 +1,63 @@
+{
+  "title": "달력",
+  "prevMonth": "이전 달",
+  "nextMonth": "다음 달",
+  "today": "오늘",
+  "close": "닫기",
+  "clear": "지우기",
+  "collapse": "접기",
+  "expand": "펼치기",
+  "allLists": "목록 전체",
+  "hiddenLists": "목록 {count}개 숨김",
+  "showDone": "완료 표시",
+  "dayWithHoliday": "{date} {holiday}",
+  "dayWithTasks": "{day}, 작업 {count}개",
+  "dayTasks": "{date} 작업",
+  "taskCount": "{count}개",
+  "emptyDay": "이날 기한인 작업이 없습니다.",
+  "more": "+{count}개",
+  "complete": "{title} 완료로 표시",
+  "uncomplete": "{title} 완료 취소",
+  "chipTitle": "{title} — {where}",
+  "nextRepeat": "반복 다음 회차 · {where}",
+  "overdue": {
+    "title": "지난 기한",
+    "count": "지난 기한 {count}개",
+    "countMore": "지난 기한 {count}+개",
+    "oldest": "· 가장 오래된 것 {date}",
+    "late": "{date} · {days}일 지남"
+  },
+  "add": {
+    "on": "{date}에 작업 추가",
+    "onThisDay": "이날에 작업 추가",
+    "title": "{date} 작업 추가",
+    "taskName": "작업 이름",
+    "list": "목록",
+    "submit": "추가",
+    "hint": "Enter 로 추가하고 이어서 입력 · Esc 로 닫기"
+  },
+  "filter": {
+    "title": "볼 목록",
+    "viewOnly": "보기 전용",
+    "showAll": "모두 보기"
+  },
+  "holidays": {
+    "newYear": "신정",
+    "seollal": "설날",
+    "seollalHoliday": "설날 연휴",
+    "independenceMovement": "삼일절",
+    "substitute": "대체공휴일",
+    "labor": "노동절",
+    "children": "어린이날",
+    "buddha": "부처님오신날",
+    "localElection": "지방선거",
+    "memorial": "현충일",
+    "constitution": "제헌절",
+    "liberation": "광복절",
+    "chuseok": "추석",
+    "chuseokHoliday": "추석 연휴",
+    "nationalFoundation": "개천절",
+    "hangul": "한글날",
+    "christmas": "성탄절"
+  }
+}

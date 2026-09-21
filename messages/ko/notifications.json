@@ -1,0 +1,37 @@
+{
+  "digest": {
+    "subject": "오늘의 할 일 — {date}",
+    "heading": "오늘의 할 일",
+    "overdue": "기한 지남 {count}건",
+    "today": "오늘 {count}건",
+    "reminders": "미리 알림 {count}건",
+    "footer": "이 메일은 {app} 에서 하루 한 번 보냅니다. 받지 않으려면 설정에서 끌 수 있습니다."
+  },
+  "title": "알림",
+  "markAllRead": "모두 읽음으로",
+  "dailyMail": "아침 요약 메일 받기",
+  "dailyMailHint": "평일 아침, 보낼 것이 있을 때만 하루 한 통",
+  "empty": "알림이 없습니다.",
+  "emptyHint": "기한과 미리 알림, 나에게 맡겨진 일이 여기에 모입니다.",
+  "fallback": {
+    "task": "작업",
+    "list": "목록",
+    "project": "프로젝트",
+    "report": "주간보고서",
+    "someone": "누군가"
+  },
+  "items": {
+    "REMINDER": "<b>{task}</b> 미리 알림",
+    "DUE_TODAY": "<b>{task}</b> 기한이 오늘입니다",
+    "ASSIGNED": "{actor}님이 <b>{task}</b> 을(를) 나에게 맡겼습니다",
+    "SHARED": "{actor}님이 <b>{list}</b> 을(를) 공유했습니다",
+    "REPORT_SEND_FAILED": "<b>{report}</b> 예약 메일을 보내지 못했습니다",
+    "MENTION": "{actor}님이 <b>{project}</b>에서 나를 언급했습니다",
+    "PROJECT_INVITED": "{actor}님이 <b>{project}</b> 프로젝트에 나를 초대했습니다"
+  },
+  "time": {
+    "now": "방금",
+    "minutes": "{count}분 전",
+    "hours": "{count}시간 전"
+  }
+}

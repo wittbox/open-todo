@@ -1,0 +1,75 @@
+{
+  "titles": {
+    "calendar": "Calendar",
+    "assigned": "Assigned to me",
+    "tasks": "Tasks",
+    "notifications": "Notifications",
+    "projects": "Projects",
+    "reports": "Weekly reports",
+    "list": "List"
+  },
+  "openMenu": "Open menu",
+  "closeMenu": "Close menu",
+  "dockMenu": "Dock menu",
+  "collapseMenu": "Collapse menu",
+  "unread": "{count, plural, one {# notification} other {# notifications}}",
+  "account": "Account",
+  "settings": "Settings",
+  "admin": "Admin",
+  "signOut": "Sign out",
+  "collapse": "Collapse",
+  "expand": "Expand",
+  "rowMenu": "{name} menu",
+  "readOnly": "Read only",
+  "sharedLists": "Shared with me",
+  "dropListsHere": "Drag lists here",
+  "listName": "List name",
+  "newList": "New list",
+  "newGroup": "New group",
+  "untitledGroup": "Untitled group",
+  "noPermission": "No permission",
+  "pendingPhase7": "Phase 7",
+  "pendingNone": "None",
+  "search": {
+    "placeholder": "Search",
+    "clear": "Clear",
+    "empty": "No results.",
+    "jump": "Jump to",
+    "results": "Results",
+    "goTo": "Go to {title}"
+  },
+  "jump": {
+    "title": "Go to task number",
+    "hint": "Enter the # number shown in the detail pane.",
+    "go": "Go"
+  },
+  "listMenu": {
+    "rename": "Rename list",
+    "share": "Share list",
+    "move": "Move list to…",
+    "removeFromGroup": "Remove from group",
+    "outOfGroup": "Take out of group",
+    "noTargetGroup": "No group to move to",
+    "print": "Print list",
+    "mail": "Send list by email",
+    "duplicate": "Duplicate list",
+    "delete": "Delete list",
+    "confirmDelete": "This deletes the list ''{name}'' and every task in it. It cannot be undone."
+  },
+  "groupMenu": {
+    "rename": "Rename group",
+    "share": "Share group",
+    "ungroup": "Ungroup",
+    "confirmUngroup": "This ungroups ''{name}''. The lists inside move to the top level."
+  },
+  "error": {
+    "staleTitle": "A new version is out",
+    "staleLine1": "The page you had open is from an older version, so it fell out of step.",
+    "staleLine2": "Reload and you pick up where you were. Nothing you saved is lost.",
+    "failedTitle": "This page could not open",
+    "failedLine1": "Something went wrong. Please reload.",
+    "failedLine2": "If you keep seeing this, let us know.",
+    "reload": "Reload",
+    "retry": "Redraw this page only"
+  }
+}

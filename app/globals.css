@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+/* preview/styles.css 의 토큰과 값을 맞춘다. 프로토타입 → 컴포넌트 이식 기준. */
+:root {
+  --side-bg: #faf9f8;
+  --side-border: #e5e3e1;
+  --side-hover: #f3f2f1;
+  --side-active: #ededeb;
+  --pane-bg: #f3f2f1;
+  --divider: #edebe9;
+
+  --ink: #201f1e;
+  --ink-2: #605e5c;
+  --ink-3: #a19f9d;
+
+  --link: #2564cf;
+  --danger: #a4262c;
+}
+
+@theme inline {
+  --color-side-bg: var(--side-bg);
+  --color-side-border: var(--side-border);
+  --color-side-hover: var(--side-hover);
+  --color-side-active: var(--side-active);
+  --color-pane-bg: var(--pane-bg);
+  --color-divider: var(--divider);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-link: var(--link);
+  --color-danger: var(--danger);
+
+  --font-sans: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  --font-mono: Consolas, "Courier New", monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--ink);
+}
+
+/* 아이폰 Safari 는 16px 보다 작은 입력칸을 누르면 화면을 확대하고 되돌리지 않는다.
+   폰 폭에서만 입력 글자를 16px 로 올린다. @layer 밖에 두어 Tailwind 글자 크기 유틸리티보다 앞선다. */
+@media (max-width: 47.99rem) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* 스크롤바 — 기본 스크롤바는 사이드바 폭을 눈에 띄게 잡아먹는다.
+   preview/styles.css 와 같은 8px 두께로 맞춘다.
+
+   주의: Chrome 은 scrollbar-width 가 지정되면 ::-webkit-scrollbar 규칙을 무시한다.
+   그래서 표준 속성은 webkit 의사요소를 지원하지 않는 브라우저(Firefox)에만 준다. */
+.thin-scroll::-webkit-scrollbar,
+.pane-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.thin-scroll::-webkit-scrollbar-track,
+.pane-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: #c8c6c4;
+  border-radius: 4px;
+}
+/* 목록/스마트 뷰 본문은 배경이 진하거나 연하므로 테마 변수를 따라간다. */
+.pane-scroll::-webkit-scrollbar-thumb {
+  background: var(--row-hover);
+  border-radius: 4px;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .thin-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #c8c6c4 transparent;
+  }
+  .pane-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--row-hover) transparent;
+  }
+}

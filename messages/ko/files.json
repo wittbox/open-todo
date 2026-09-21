@@ -1,0 +1,9 @@
+{
+  "pastedImage": "붙여넣은 이미지",
+  "errors": {
+    "empty": "빈 파일은 올릴 수 없습니다.",
+    "tooLarge": "파일 하나는 {mb}MB까지 올릴 수 있습니다.",
+    "executable": "실행 파일은 올릴 수 없습니다 (.{ext})",
+    "tooManyPerMessage": "메시지 하나에 {max}개까지 붙일 수 있습니다."
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "unverified": "Only accounts with a confirmed email can send report mail.",
+  "tooManyRecipients": "You can send to up to {max} people at once.",
+  "dailyLimit": "You can send to up to {limit} people a day. Please try again tomorrow."
+}

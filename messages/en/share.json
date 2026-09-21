@@ -1,0 +1,50 @@
+{
+  "roles": {
+    "VIEWER": "Can view",
+    "EDITOR": "Can edit",
+    "ADMIN": "Can manage"
+  },
+  "subject": {
+    "GROUP": "group",
+    "LIST": "list",
+    "REPORT": "report"
+  },
+  "dialogTitle": "Share {subject}",
+  "dialogTitleNamed": "Share {subject} — {name}",
+  "loading": "Loading…",
+  "close": "Close",
+  "inherited": "This list sits in the <b>{group}</b> group. What you grant on the group applies here too, and a higher level granted here wins.",
+  "addUser": "Add someone",
+  "searchPlaceholder": "Search by name or email",
+  "noResults": "Nobody matches. People who have never signed in to {app} don't show up — send them the <b>invite link</b> below.",
+  "membersCount": "Shared with {count}",
+  "me": "(you)",
+  "owner": "Owner",
+  "remove": "Stop sharing",
+  "inviteLink": "Invite link",
+  "createLink": "Create a link",
+  "copy": "Copy",
+  "revoke": "Revoke",
+  "linkNote": "Anyone with the link joins as <b>{role}</b>. Valid until {date}",
+  "linkUsed": "used at least once",
+  "onlyAdmins": "Only people who can manage this may change sharing.",
+  "copied": "Invite link copied.",
+  "copyFailed": "Couldn't copy. The link: {url}",
+  "loadFailed": "Couldn't load the sharing settings.",
+  "invite": {
+    "navTitle": "Invitation",
+    "invalidTitle": "This invite link can't be used",
+    "invalidBody": "It expired or was revoked. Ask the person who shared it for a new link.",
+    "heading": "{subject} invitation",
+    "bodyGroup": "<b>{inviter}</b> shared the group <b>{name}</b> with you as <b>{role}</b>.",
+    "bodyList": "<b>{inviter}</b> shared the list <b>{name}</b> with you as <b>{role}</b>.",
+    "join": "Join",
+    "toCalendar": "Go to the calendar"
+  },
+  "errors": {
+    "ownerRole": "The owner already has full access.",
+    "inviteInvalid": "That invite link has expired or doesn't exist.",
+    "badRequest": "That request wasn't valid.",
+    "notFound": "Not found, or you don't have access."
+  }
+}

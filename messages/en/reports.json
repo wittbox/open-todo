@@ -1,0 +1,153 @@
+{
+  "title": "Weekly report",
+  "navTitle": "Weekly reports",
+  "sections": {
+    "done": "Done this week",
+    "inProgress": "In progress",
+    "upcoming": "Coming up"
+  },
+  "reasons": {
+    "step": "Steps done",
+    "myday": "My Day",
+    "due": "Due this week",
+    "future": "Due later",
+    "overdue": "Overdue",
+    "new": "Added this week",
+    "manual": "Moved by hand"
+  },
+  "defaultTitle": "Weekly report - {who} {date}",
+  "page": {
+    "lead": "Collects tasks from the lists you can see, week by week. Monday 00:00 to Sunday 24:00.",
+    "pickWeek": "Pick a week",
+    "thisWeek": "This week",
+    "lastWeek": "Last week",
+    "notCreated": "Not started yet",
+    "published": "Published",
+    "mine": "{count, plural, one {# report} other {# reports}} you wrote",
+    "noneMine": "No reports yet. Pick a week above to start one.",
+    "publishedAt": "published {date}",
+    "sharedCount": "shared with {count}",
+    "sendCount": "sent {count, plural, one {# time} other {# times}}",
+    "sharedWithMe": "{count, plural, one {# report} other {# reports}} shared with you",
+    "noneShared": "No reports shared with you. They appear here once the author publishes and shares one.",
+    "readOnly": "Read only"
+  },
+  "editor": {
+    "draft": "Draft",
+    "publishedOn": "Published · {date}",
+    "share": "Share",
+    "shareTitle": "Share with colleagues",
+    "shareAfterPublish": "You can share it once it's published",
+    "republishConfirm": "This replaces the published version with what you see now.",
+    "publishedToast": "Published. Later changes to tasks won't touch this report.",
+    "publish": "Publish",
+    "republish": "Publish again",
+    "sendMail": "Send email",
+    "sendTitle": "Send email",
+    "sendAfterPublish": "You can send it once it's published",
+    "excluded": "Left out: {count}",
+    "restore": "Put back",
+    "sendHistory": "Sent mail",
+    "titleLabel": "Title",
+    "summaryLabel": "Summary",
+    "summaryPlaceholder": "Two or three lines on what mattered this week",
+    "scopeLabel": "What to include",
+    "noGroups": "No group has tasks in that week.",
+    "all": "All",
+    "publishNote": "<b>Publishing</b> freezes what you see now. Later edits to tasks don't change the report or the link you shared.",
+    "unpublishConfirm": "Unpublish this report? People you shared it with lose access.",
+    "unpublish": "Unpublish"
+  },
+  "send": {
+    "aria": "Send report by email",
+    "title": "Send email",
+    "warnNow": "This can't be taken back. Check the recipients.",
+    "warnSchedule": "You can cancel a scheduled send from the history until it goes out.",
+    "toLabel": "To (separate with commas or line breaks)",
+    "toPlaceholder": "Type a name or the start of an address",
+    "subjectLine": "Subject:",
+    "bodyLine": "Body: {range} · {count, plural, one {# task} other {# tasks}}",
+    "attachPdf": "Also attach it as a PDF",
+    "now": "Now",
+    "schedule": "Later",
+    "timeAria": "Scheduled time",
+    "scheduleNote": "At that time we send <b>whatever is published then</b>. Publish again before it and the new version goes out.",
+    "cancel": "Cancel",
+    "sending": "Sending…",
+    "scheduling": "Scheduling…",
+    "scheduleSubmit": "Schedule for {when}, {count, plural, one {# person} other {# people}}",
+    "sendSubmit": "Send to {count, plural, one {# person} other {# people}}",
+    "scheduledToast": "Scheduled for {when}, to {count, plural, one {# person} other {# people}}.",
+    "mockToast": "Written to tmp/mail instead of sending — open it to read the message.",
+    "sentToast": "Sent to {count, plural, one {# person} other {# people}}."
+  },
+  "status": {
+    "SCHEDULED": "Scheduled",
+    "SENDING": "Sending",
+    "SENT": "Sent",
+    "FAILED": "Failed",
+    "CANCELED": "Canceled"
+  },
+  "share": {
+    "aria": "Share report",
+    "title": "Share report",
+    "close": "Close",
+    "note": "People you share with <b>can only read the published version</b>. Only you can edit, send or share it. Unpublishing closes their access too.",
+    "addUser": "Add someone",
+    "searchPlaceholder": "Search by name or email",
+    "noResults": "Nobody matches. People who have never signed in to {app} don't show up.",
+    "sharingCount": "Shared with {count}",
+    "noneShared": "Not shared with anyone yet.",
+    "unshare": "Stop sharing"
+  },
+  "shared": {
+    "title": "Weekly report",
+    "badge": "Shared report · read only",
+    "publishedNote": "This is the version published on {date}. Later changes to tasks don't touch it.",
+    "deepLinkNote": "To open the tasks behind these numbers you need the list shared with you as well."
+  },
+  "body": {
+    "empty": "No tasks fall in this week.",
+    "count": "{count, plural, one {# task} other {# tasks}}",
+    "editTitle": "Click to edit",
+    "commentPlaceholder": "Comment — Enter to save, Esc to cancel",
+    "moveToUpcoming": "Move to Coming up",
+    "moveToInProgress": "Move to In progress",
+    "comment": "Comment",
+    "excludeAria": "Leave out of the report",
+    "exclude": "Leave out"
+  },
+  "mail": {
+    "footerNote": "This email holds the report as published. Task numbers (#1042) point at tasks in {app}; the details are visible in the app to people with access to that list.",
+    "sentBy": "Sent by {name} from {app}.",
+    "issued": "{app} · published {date}"
+  },
+  "pdf": {
+    "fileName": "Weekly report_{who}_{date}.pdf",
+    "author": "author"
+  },
+  "errors": {
+    "notFound": "Not found, or you don't have access.",
+    "publishFirst": "Publish it first, then you can send it.",
+    "noRecipients": "Add at least one recipient.",
+    "badEmails": "These don't look like email addresses: {list}",
+    "pdfFailedSend": "Couldn't build the PDF. Turn off \"Also attach it as a PDF\" to send the message body only.",
+    "sendFailed": "Couldn't send it.",
+    "requestFailed": "The send request failed.",
+    "unpublished": "Not sent — the report was unpublished.",
+    "pdfFailed": "Couldn't build the PDF.",
+    "cannotShareAuthor": "You can't share a report back to its author.",
+    "scheduleCanceled": "Scheduled send canceled.",
+    "scheduleInvalid": "That scheduled time isn't valid.",
+    "scheduleStep": "Scheduled sends go out in {step}-minute steps.",
+    "scheduleLead": "Schedule it at least {minutes} minutes from now.",
+    "scheduleTooFar": "Schedule it within {days} days."
+  },
+  "history": {
+    "fromSchedule": "scheduled for {when}",
+    "withPdf": "with PDF",
+    "retrying": "Failed once, trying again shortly — {error}",
+    "cancelSchedule": "Cancel"
+  },
+  "ungrouped": "Lists without a group"
+}

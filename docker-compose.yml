@@ -1,0 +1,121 @@
+# Self-hosted stack: PostgreSQL + a one-off migration + the app + a scheduled-job sidecar.
+#
+#   cp .env.example .env   # fill in POSTGRES_PASSWORD, APP_BASE_URL, SESSION_SECRET, CRON_KEY
+#   docker compose up -d --build
+#
+# Put an HTTPS reverse proxy (Caddy, nginx, …) in front of port ${APP_PORT:-3000} and set
+# TRUST_PROXY=1 so rate limits see the visitor's address. See README.md for a worked example.
+#
+# Everything that has to survive a rebuild lives under ./data: the database and the attachments.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: todo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: todo
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U todo -d todo"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # Not published; only the app container talks to it.
+    expose:
+      - "5432"
+
+  # Applies migrations once, then exits. The builder stage already has the Prisma CLI.
+  migrate:
+    build:
+      context: .
+      target: builder
+    command: npx prisma migrate deploy
+    environment:
+      DATABASE_URL: postgres://todo:${POSTGRES_PASSWORD}@db:5432/todo
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      target: runner
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://todo:${POSTGRES_PASSWORD}@db:5432/todo
+      DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-}
+      APP_BASE_URL: ${APP_BASE_URL:?set APP_BASE_URL in .env}
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
+      ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:-}
+      # Defaults for people who haven't chosen in settings.
+      DEFAULT_LOCALE: ${DEFAULT_LOCALE:-}
+      APP_TZ: ${APP_TZ:-}
+      HOLIDAY_REGION: ${HOLIDAY_REGION:-}
+      # 1 when a reverse proxy sits in front, so X-Forwarded-For is trusted for rate limits.
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      # Mail
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_SECURE: ${SMTP_SECURE:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MOCK_MAIL: ${MOCK_MAIL:-}
+      REPORT_MAIL_MAX_RECIPIENTS: ${REPORT_MAIL_MAX_RECIPIENTS:-}
+      REPORT_MAIL_DAILY_LIMIT: ${REPORT_MAIL_DAILY_LIMIT:-}
+      # Sign in with a provider. A button shows up only when both values are set.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID:-}
+      KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-}
+      KAKAO_REQUEST_EMAIL: ${KAKAO_REQUEST_EMAIL:-}
+      NAVER_CLIENT_ID: ${NAVER_CLIENT_ID:-}
+      NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET:-}
+      UPLOAD_DIR: /app/uploads
+      CRON_KEY: ${CRON_KEY:?set CRON_KEY in .env}
+    volumes:
+      # Attachments live outside the image so they survive rebuilds.
+      - ./data/uploads:/app/uploads
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # The app only runs while someone is looking at it, so reminders, the morning digest and
+  # scheduled report mail need a knock from outside. This sidecar is that knock.
+  #
+  #   every 5 minutes  → /api/cron/sends  (scheduled report mail)
+  #   every hour       → /api/cron/tick   (reminders, due-today, the 8am digest per time zone)
+  #
+  # It waits for the next 5-minute mark instead of sleeping 300s in a loop: a loop drifts a
+  # little every round, and an hourly job that drifts eventually skips a whole hour.
+  cron:
+    image: curlimages/curl:8.16.0
+    restart: unless-stopped
+    environment:
+      CRON_KEY: ${CRON_KEY:?set CRON_KEY in .env}
+    command:
+      - sh
+      - -c
+      - |
+        set -u
+        knock() {
+          curl -fsS -m 300 -X POST -H "x-cron-key: $$CRON_KEY" -o /dev/null "http://app:3000/api/cron/$$1" \
+            || echo "[cron] $$1 failed"
+        }
+        while true; do
+          sleep $$(( 300 - $$(date -u +%s) % 300 ))
+          knock sends
+          case "$$(date -u +%M)" in 0[0-4]) knock tick ;; esac
+        done
+    depends_on:
+      app:
+        condition: service_healthy

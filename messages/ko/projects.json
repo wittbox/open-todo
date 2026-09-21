@@ -1,0 +1,173 @@
+{
+  "title": "프로젝트",
+  "newProject": "새 프로젝트",
+  "allProjects": "모든 프로젝트 보기",
+  "expand": "펼치기",
+  "collapse": "접기",
+  "expandProjects": "프로젝트 펼치기",
+  "collapseProjects": "프로젝트 접기",
+  "close": "닫기",
+  "cancel": "취소",
+  "save": "저장",
+  "visibility": {
+    "label": "공개 범위",
+    "public": "공개 — 이 서버의 누구나 찾아서 참여",
+    "private": "비공개 — 초대만"
+  },
+  "directory": {
+    "mine": "내 프로젝트 {count}개",
+    "mineEmpty": "아직 참여한 프로젝트가 없습니다. 아래 공개 프로젝트에 참여하거나 새로 만드세요.",
+    "open": "공개 프로젝트 {count}개 — 참여하면 대화를 볼 수 있습니다",
+    "openEmpty": "참여할 수 있는 공개 프로젝트가 없습니다.",
+    "archived": "보관된 프로젝트 {count}개",
+    "privatePlaceholder": "비공개",
+    "memberCount": "멤버 {count}명",
+    "archivedMark": "· 보관됨"
+  },
+  "join": {
+    "summary": "공개 프로젝트 · 멤버 {count}명",
+    "intro": "참여하면 대화를 보고 글을 쓸 수 있습니다.",
+    "action": "참여하기"
+  },
+  "header": {
+    "archived": "보관됨 · 읽기 전용",
+    "members": "멤버 {count}"
+  },
+  "pins": {
+    "count": "고정 {count}개",
+    "unpin": "해제"
+  },
+  "stream": {
+    "loadOlder": "이전 메시지 보기",
+    "loadingOlder": "불러오는 중…",
+    "empty": "아직 메시지가 없습니다. 첫 글을 남겨 보세요.",
+    "unreadDivider": "여기부터 읽지 않음",
+    "newBelow": "새 메시지 {count} ↓",
+    "placeholder": "{name}에 메시지 보내기",
+    "copyFailed": "복사에 실패했습니다. 주소: {url}",
+    "confirmDelete": "이 메시지를 지울까요?",
+    "confirmDeleteWithReplies": "이 메시지를 지울까요? 답글 {count}개는 남습니다.",
+    "confirmDeleteReply": "이 답글을 지울까요?"
+  },
+  "message": {
+    "deletedAuthor": "삭제된 메시지",
+    "deletedBody": "삭제된 메시지입니다",
+    "unknownUser": "알 수 없음",
+    "edited": "(수정됨)",
+    "pinned": "고정됨",
+    "menu": "메시지 메뉴",
+    "reply": "답글",
+    "replyInThread": "답글 달기",
+    "replyCount": "답글 {count}개",
+    "lastReply": "· 마지막 {when}",
+    "pin": "고정",
+    "unpin": "고정 해제",
+    "copyLink": "링크 복사",
+    "copyText": "텍스트 복사",
+    "edit": "수정",
+    "delete": "삭제",
+    "mentionAll": "전체",
+    "mentionMe": "나"
+  },
+  "editor": {
+    "label": "메시지 고치기",
+    "hint": "Enter 저장 · Esc 취소"
+  },
+  "composer": {
+    "locked": "쓸 수 없습니다.",
+    "mentionList": "멘션할 사람",
+    "mentionAllHint": "멤버 모두에게",
+    "attachedFiles": "붙일 파일",
+    "removeFile": "{name} 빼기",
+    "attach": "파일 붙이기",
+    "mention": "사람 부르기",
+    "hint": "Enter 전송 · Shift+Enter 줄바꿈",
+    "hintWithFiles": "Enter 전송 · Shift+Enter 줄바꿈 · 파일은 붙여넣거나 끌어다 놓기",
+    "sending": "보내는 중…",
+    "send": "보내기"
+  },
+  "thread": {
+    "title": "스레드",
+    "close": "스레드 닫기",
+    "replies": "답글 {count}개",
+    "placeholder": "답글 남기기"
+  },
+  "new": {
+    "name": "이름",
+    "namePlaceholder": "예: 해외 수출",
+    "purpose": "목적 (선택)",
+    "purposePlaceholder": "이 프로젝트에서 무엇을 이야기하나",
+    "create": "만들기"
+  },
+  "members": {
+    "title": "멤버",
+    "search": "이름이나 이메일로 사람 찾기",
+    "searchLabel": "사람 찾기",
+    "me": "(나)",
+    "owner": "소유자",
+    "leave": "나가기",
+    "confirmLeave": "이 프로젝트에서 나갈까요?",
+    "roleLabel": "{name} 역할",
+    "confirmRemove": "{name}님을 내보낼까요?",
+    "admin": "관리자",
+    "member": "멤버",
+    "remove": "내보내기"
+  },
+  "settings": {
+    "title": "프로젝트 설정",
+    "name": "이름",
+    "purpose": "목적 (한 줄)",
+    "owner": "소유자",
+    "ownerOption": "{name} (지금 소유자)",
+    "transfer": "넘기기",
+    "confirmTransfer": "{name}님에게 소유권을 넘길까요? 나는 관리자로 남습니다.",
+    "archive": "보관",
+    "archiveAction": "보관하기",
+    "archiveHint": "읽기 전용으로 바꾼다. 나중에 되돌릴 수 있다.",
+    "unarchive": "보관 해제",
+    "unarchiveHint": "다시 글을 쓸 수 있게 한다.",
+    "delete": "삭제",
+    "deleteHint": "메시지·파일·멤버가 모두 지워진다. 되돌릴 수 없다.",
+    "deleteAction": "프로젝트 삭제",
+    "confirmDelete": "\"{name}\" 프로젝트를 지울까요? 메시지와 파일이 모두 사라집니다."
+  },
+  "day": {
+    "today": "오늘",
+    "yesterday": "어제"
+  },
+  "relative": {
+    "justNow": "방금",
+    "minutes": "{count}분 전",
+    "hours": "{count}시간 전",
+    "yesterdayAt": "어제 {time}",
+    "dateAt": "{month}/{day} {time}"
+  },
+  "send": {
+    "failed": "보내지 못했습니다. 연결을 확인해 주세요.",
+    "failedShort": "보내지 못했습니다.",
+    "unauthenticated": "로그인이 필요합니다."
+  },
+  "defaults": {
+    "untitled": "이름 없는 프로젝트"
+  },
+  "errors": {
+    "archived": "보관된 프로젝트는 읽기 전용입니다.",
+    "transferToMemberOnly": "멤버에게만 넘길 수 있습니다.",
+    "ownerMustTransfer": "소유자는 먼저 소유권을 넘겨야 합니다.",
+    "ownerCannotBeRemoved": "소유자는 내보낼 수 없습니다.",
+    "removeAdminOwnerOnly": "관리자는 소유자만 내보낼 수 있습니다.",
+    "ownerRoleFixed": "소유자의 역할은 바꿀 수 없습니다.",
+    "demoteOwnerOnly": "관리자 해제는 소유자만 할 수 있습니다.",
+    "pinReply": "답글은 고정할 수 없습니다.",
+    "pinLimit": "고정은 {max}개까지 할 수 있습니다.",
+    "emptyBody": "내용이 없습니다.",
+    "bodyTooLong": "메시지는 {max, number}자까지 쓸 수 있습니다.",
+    "tooManyMentions": "한 메시지에 {count}명은 너무 많습니다. {max}명까지 부를 수 있습니다.",
+    "replyToReply": "답글에는 답글을 달 수 없습니다.",
+    "replyToDeleted": "삭제된 메시지에는 답글을 달 수 없습니다.",
+    "editOwnOnly": "내가 쓴 글만 고칠 수 있습니다.",
+    "deleteOwnOrAdmin": "내가 쓴 글이거나 관리자여야 지울 수 있습니다.",
+    "notFound": "찾을 수 없거나 접근 권한이 없습니다.",
+    "badRequest": "요청을 읽지 못했습니다."
+  }
+}

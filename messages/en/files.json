@@ -1,0 +1,9 @@
+{
+  "pastedImage": "Pasted image",
+  "errors": {
+    "empty": "Empty files cannot be uploaded.",
+    "tooLarge": "Each file can be up to {mb}MB.",
+    "executable": "Executable files cannot be uploaded (.{ext})",
+    "tooManyPerMessage": "You can attach up to {max, plural, one {# file} other {# files}} to one message."
+  }
+}
