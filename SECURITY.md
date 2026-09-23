@@ -59,6 +59,23 @@ Worth knowing before you dig, so you don't spend time on ground that's covered:
 - On an open-sign-up install, people search needs the full email address, so the user list
   can't be enumerated.
 
+## The container
+
+The published image runs the app and its PostgreSQL together, so it is worth saying what
+that means:
+
+- PostgreSQL listens on `127.0.0.1` inside the container only. The port is neither exposed
+  nor published, so nothing outside that container — including other containers — can reach
+  it. Connections from there are trusted, which means there is no database password to
+  leak, rotate or lose along with a backup.
+- PID 1 is `tini`, and under it a supervisor starts as root only to prepare the volume
+  (ownership, `initdb`, `pg_hba.conf`). Everything that keeps running drops privileges:
+  PostgreSQL to the `postgres` user, the app to an unprivileged user of its own.
+- The session key is generated on first boot and written to the data volume with mode 600.
+  Anyone who can read the volume can forge sessions, so treat backups of it as secrets.
+- Migrations run at startup from a copy of the Prisma CLI inside the image; nothing is
+  fetched from the network at boot.
+
 ## Supported versions
 
 Until 1.0, fixes land on the latest release and on `main`. Older tags aren't patched.

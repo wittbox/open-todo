@@ -5,6 +5,19 @@
 export async function runStartupChecks() {
   await checkInstall();
   await checkAdmin();
+  await startJobs();
+}
+
+/**
+ * 예약 작업(알림·아침 요약·예약 발송)을 이 프로세스 안에서 돈다.
+ * 한 컨테이너 안에 DB 와 앱이 같이 있는 설치(도커 이미지)가 `RUN_JOBS=1` 을 켠다.
+ * 밖의 스케줄러를 쓰는 설치는 켜지 않고 `/api/cron/*` 를 `CRON_KEY` 로 두드리면 된다.
+ */
+async function startJobs() {
+  if (process.env.RUN_JOBS !== "1") return;
+  const { startJobScheduler } = await import("@/lib/jobs/scheduler");
+  startJobScheduler();
+  console.log("[jobs] scheduler on — reminders and the morning digest hourly, scheduled report mail every 5 minutes");
 }
 
 async function checkInstall() {

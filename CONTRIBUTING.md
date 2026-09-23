@@ -31,9 +31,16 @@ npm test
 npm run build
 ```
 
-CI runs the same five, plus a check that the migrations still match `schema.prisma` and a
-Docker build. Tests that touch the database run against `DATABASE_URL`; they create and
-delete their own rows, so point them at a development database, never a real one.
+CI runs the same five, plus a check that the migrations still match `schema.prisma`, and it
+builds the container image and starts it: the image has to come up healthy on an empty
+volume, apply its migrations, survive a stop and start with the data intact, and refuse a
+cluster from another PostgreSQL major. That job is the only place the image is exercised, so
+read its log when you touch `Dockerfile` or `docker/entrypoint.mts`.
+
+Tests that touch the database run against `DATABASE_URL`; they create and delete their own
+rows, so point them at a development database, never a real one. The parts of the container
+entrypoint that can be tested without Docker are pure functions — see
+`tests/entrypoint.test.ts`.
 
 ## How the code is laid out
 

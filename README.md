@@ -35,32 +35,31 @@ Built with Next.js 16, React 19, Prisma 7 and PostgreSQL. MIT licensed.
 
 ## Quick start with Docker
 
-You need Docker with the Compose plugin, and a machine you can reach on a URL.
+One container holds everything: the app, its PostgreSQL, and the scheduled jobs. One volume
+holds everything that has to survive an upgrade: the database, the attachments and the
+generated session key.
+
+```bash
+docker run -d --name todo \
+  -v todo-data:/data -p 3000:3000 --shm-size=256m \
+  -e APP_BASE_URL=https://todo.example.com \
+  ghcr.io/wittbox/open-todo:latest
+```
+
+`APP_BASE_URL` is the address people will type; email links and OAuth callbacks are built
+from it. That is the only value you have to set — the first boot creates the database,
+applies the migrations and writes a session key into the volume.
+
+Or from a clone, which builds the same image and reads `.env`:
 
 ```bash
 git clone https://github.com/wittbox/open-todo.git
 cd open-todo
-cp .env.example .env
-```
-
-Fill in four values in `.env`:
-
-```bash
-POSTGRES_PASSWORD=   # openssl rand -hex 24
-APP_BASE_URL=        # https://todo.example.com — the address people will type
-SESSION_SECRET=      # openssl rand -hex 32
-CRON_KEY=            # openssl rand -hex 32
-```
-
-Then:
-
-```bash
+cp .env.example .env     # set APP_BASE_URL
 docker compose up -d --build
 ```
 
-Four containers come up: PostgreSQL, a one-off migration job, the app on port 3000, and a
-small sidecar that knocks on the scheduled-job endpoints. Put an HTTPS reverse proxy in
-front (see below) and open your address.
+Put an HTTPS reverse proxy in front (see below) and open your address.
 
 **Create the administrator account before anyone else can.** On an empty install the first
 person to sign up becomes the administrator, and that door then closes for good. On a
@@ -89,9 +88,8 @@ SMTP_PASS=…
 MAIL_FROM="open-todo <todo@example.com>"
 ```
 
-Check it with `npm run mail:test -- you@example.com` (or `docker compose exec app node
--e …` if you only have containers — the test script needs the dev dependencies, so it is
-easiest to run from a clone).
+Check it with `npm run mail:test -- you@example.com` from a clone — the test script needs
+the development dependencies, which the image does not carry.
 
 Report mail is always sent **from** the install's address with the author's name as the
 display name, and replies go to the author. Sending as the author's own address would fail
@@ -119,12 +117,13 @@ provider.
 
 ## Environment variables
 
+Inside the container the database, the upload directory and the scheduled jobs are already
+wired up; these are what you can change.
+
 | Variable | Required | What it does |
 |---|---|---|
-| `DATABASE_URL` | yes | PostgreSQL connection string. Compose sets it for you. |
-| `DATABASE_POOL_MAX` | | Connection pool size. Default 10. |
 | `APP_BASE_URL` | yes | Public address. Email links and OAuth callbacks are built from it, and `https://` here is what turns on `Secure` session cookies. |
-| `SESSION_SECRET` | yes | Signs session cookies. 32+ characters. Changing it signs everyone out. |
+| `SESSION_SECRET` | | Signs session cookies. 32+ characters. Generated into `/data/secrets` on first boot if you leave it empty. Changing it signs everyone out. |
 | `APP_NAME` | | What the install is called in titles and email. An administrator can also set it in `/admin`, which wins. Default `open-todo`. |
 | `ADMIN_BOOTSTRAP_EMAIL` | | Restricts the first-administrator sign-up to one address. |
 | `DEFAULT_LOCALE` | | `ko` or `en`, for people who haven't chosen. Default `ko`. |
@@ -135,10 +134,11 @@ provider.
 | `REPORT_MAIL_MAX_RECIPIENTS` | | Recipients per report send. Default 10. |
 | `REPORT_MAIL_DAILY_LIMIT` | | Recipients per person per 24 hours. Default 100. |
 | `GOOGLE_CLIENT_ID` `GOOGLE_CLIENT_SECRET` | | Sign in with Google. |
-| `UPLOAD_DIR` | | Where attachments are written. Compose mounts `./data/uploads`. |
-| `CRON_KEY` | yes | Key for `/api/cron/*`. Without it those endpoints stay closed and nothing scheduled runs. |
 | `MOCK_MAIL` | | `1` writes mail to `tmp/mail/*.html` instead of sending. Development only. |
-| `POSTGRES_PASSWORD` `APP_PORT` | | Used by `docker-compose.yml` itself. |
+| `RUN_JOBS` | | `0` turns off the scheduler inside the app, for installs that drive `/api/cron/*` from outside. On by default in the container. |
+| `CRON_KEY` | | Key for `/api/cron/*`, only needed with `RUN_JOBS=0`. Those endpoints answer `404` while it is unset. |
+| `APP_PORT` | | Host port `docker-compose.yml` publishes. Default 3000. |
+| `DATABASE_URL` `DATABASE_POOL_MAX` `UPLOAD_DIR` | | Local development outside the container. The image sets its own. |
 
 The app checks these when it starts and writes a `[setup]` line for anything missing or
 suspicious — read the log once after your first boot.
@@ -178,16 +178,16 @@ actions reject requests from another origin.
 
 ## Scheduled jobs
 
-Two endpoints do the work that has to happen while nobody is looking. Both want
-`POST` with an `x-cron-key` header, and both answer `404` when `CRON_KEY` is unset:
+Some work has to happen while nobody is looking, and the app runs it itself:
 
-| Endpoint | How often | What it does |
+| Job | How often | What it does |
 |---|---|---|
-| `/api/cron/tick` | hourly | Reminders, due-today notifications, the 8am digest in each person's time zone, and cleaning up used links. |
-| `/api/cron/sends` | every 5 minutes | Report mail that was scheduled for later. |
+| `tick` | hourly | Reminders, due-today notifications, the 8am digest in each person's time zone, and cleaning up used links. |
+| `sends` | every 5 minutes | Report mail that was scheduled for later. |
 
-The `cron` container in `docker-compose.yml` already does this. If you run the app some
-other way, any scheduler will do:
+There is nothing to configure. If you would rather drive them from outside — a cron on the
+host, a Kubernetes CronJob — set `RUN_JOBS=0` and a `CRON_KEY`, and knock on the two
+endpoints, which answer `404` while that key is unset:
 
 ```cron
 */5 * * * * curl -fsS -X POST -H "x-cron-key: $CRON_KEY" https://todo.example.com/api/cron/sends
@@ -197,24 +197,77 @@ other way, any scheduler will do:
 ## Updating
 
 ```bash
+docker pull ghcr.io/wittbox/open-todo:latest
+docker stop todo && docker rm todo
+docker run -d --name todo -v todo-data:/data -p 3000:3000 --shm-size=256m \
+  -e APP_BASE_URL=https://todo.example.com ghcr.io/wittbox/open-todo:latest
+```
+
+From a clone it is `git pull && docker compose up -d --build`.
+
+The container applies any new migrations before the app starts, and migrations only ever
+add — none of them drop a column you were using. The PostgreSQL major version is part of
+the image, so read the release notes before a major upgrade; see below.
+
+## Backups
+
+Everything that holds state is in the volume: the database, the attachments and the
+generated session key.
+
+```bash
+docker exec todo pg_dump -U todo todo | gzip > backup-$(date +%F).sql.gz
+docker run --rm -v todo-data:/data -v "$PWD":/out alpine \
+  tar czf /out/data-$(date +%F).tar.gz -C /data uploads secrets
+```
+
+To restore, start the container with `--db-only` — PostgreSQL comes up, the app does not,
+so nothing writes while you work:
+
+```bash
+docker run -d --name todo-restore -v todo-data:/data --shm-size=256m \
+  -e APP_BASE_URL=http://localhost:3000 ghcr.io/wittbox/open-todo:latest --db-only
+gunzip -c backup-2026-09-23.sql.gz | docker exec -i todo-restore psql -U todo -d todo
+docker rm -f todo-restore
+```
+
+Then start it normally again. Keep `secrets/` with the dump: losing the session key signs
+everybody out, and losing the uploads leaves attachments that the app still lists.
+
+## Upgrading PostgreSQL
+
+The image carries one PostgreSQL major version. If a future image moves to a newer major,
+it refuses to open the old cluster instead of touching it, and says so in the log. The
+path is dump, swap, restore:
+
+```bash
+# with the OLD image still in place
+docker exec todo pg_dump -U todo todo | gzip > before-upgrade.sql.gz
+docker rm -f todo
+docker volume rm todo-data                 # the old cluster; you have the dump
+docker run -d --name todo-restore -v todo-data:/data --shm-size=256m \
+  -e APP_BASE_URL=http://localhost:3000 ghcr.io/wittbox/open-todo:NEW --db-only
+gunzip -c before-upgrade.sql.gz | docker exec -i todo-restore psql -U todo -d todo
+docker rm -f todo-restore
+```
+
+Copy `uploads/` and `secrets/` across too if you replaced the volume.
+
+## Moving from the four-container layout
+
+Installs from before 0.2 ran `db`, `migrate`, `app` and `cron` side by side. The single
+container adopts that data as it is — same PostgreSQL major, same `todo` role, same
+`./data` directory:
+
+```bash
+docker compose down --remove-orphans   # the old db container must let go of ./data/postgres
 git pull
 docker compose up -d --build
 ```
 
-The `migrate` service runs any new migrations before the app starts. Migrations only ever
-add; none of them drop a column you were using.
-
-## Backups
-
-Two things hold state: the database and the uploads directory.
-
-```bash
-docker compose exec -T db pg_dump -U todo todo | gzip > backup-$(date +%F).sql.gz
-tar czf uploads-$(date +%F).tar.gz data/uploads
-```
-
-To restore into an empty install, bring up `db`, pipe the dump into
-`psql -U todo todo`, untar the uploads, then start the app.
+The first boot finds the cluster, adds a line to `pg_hba.conf` so the app can reach it
+inside the container, and applies any pending migrations. `POSTGRES_PASSWORD` and
+`CRON_KEY` are no longer needed; a `SESSION_SECRET` in `.env` keeps working and everyone
+stays signed in.
 
 ## Local development
 
@@ -261,6 +314,10 @@ default is `DEFAULT_LOCALE`.
   recipients per send and per day, so an install can't be turned into a spam relay.
 - Invitation, confirmation and reset links are stored as SHA-256 hashes and are shown in
   full exactly once.
+- Inside the container PostgreSQL listens on loopback only — it is not published and not
+  reachable from another container — and trusts connections from there, so there is no
+  database password to leak or rotate. PID 1 starts as root to prepare the volume and then
+  runs PostgreSQL as `postgres` and the app as an unprivileged user; neither child is root.
 - Found something? See [SECURITY.md](SECURITY.md).
 
 ## Contributing

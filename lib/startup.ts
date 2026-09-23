@@ -73,9 +73,10 @@ export function installProblems(env: NodeJS.ProcessEnv, facts: InstallFacts): Pr
     warn(`TRUST_PROXY should be the number of proxies in front of the app (usually 1) — got ${proxies}. Ignoring it.`);
   }
 
-  if (!env.CRON_KEY?.trim()) {
+  // 앱 안에서 도는 설치(컨테이너 이미지)는 이 주소가 닫혀 있어도 할 일을 한다.
+  if (env.RUN_JOBS !== "1" && !env.CRON_KEY?.trim()) {
     warn(
-      "CRON_KEY is not set, so /api/cron/* stays closed: no reminders, no morning digest and no scheduled report mail. Generate one with: openssl rand -hex 32",
+      "CRON_KEY is not set and RUN_JOBS is off, so /api/cron/* stays closed: no reminders, no morning digest and no scheduled report mail. Generate a key with: openssl rand -hex 32",
     );
   }
 

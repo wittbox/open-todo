@@ -6,6 +6,8 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    // 시험이 docker/entrypoint.mts 를 확장자째 불러온다(Node 24 가 그대로 실행하는 파일이라 빌드 산출물이 없다).
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",

@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The container image is built on two base images that move underneath us. Notice that here,
+  # not from a user.
+  schedule:
+    - cron: "17 4 * * 1"
 
 permissions:
   contents: read
@@ -75,15 +79,106 @@ jobs:
       - run: npm run build
 
   docker:
-    name: Docker image
+    name: Container (build and smoke test)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - run: docker build --target runner -t open-todo:ci .
+
+      # The image copies the Node binary into the PostgreSQL base image. When either base moves to a
+      # new Alpine, this is where it breaks — with a readable message instead of a segfault later.
+      - name: The pieces the entrypoint needs are present
+        run: |
+          docker run --rm --entrypoint sh open-todo:ci -c '
+            set -e
+            command -v su-exec wget psql initdb pg_isready > /dev/null
+            node -v
+            postgres --version
+            id postgres
+            id nextjs
+            test -x /opt/migrate/schema-engine
+          '
+
+      - name: Start it on a named volume
+        run: |
+          docker volume create ci-data
+          docker run -d --name todo --shm-size=256m -v ci-data:/data -p 3000:3000             -e APP_BASE_URL=http://localhost:3000 -e MOCK_MAIL=1 open-todo:ci
+          for i in $(seq 1 60); do
+            status=$(docker inspect -f '{{.State.Health.Status}}' todo)
+            [ "$status" = healthy ] && exit 0
+            [ "$status" = unhealthy ] && break
+            sleep 2
+          done
+          echo "container did not become healthy"; docker logs todo; exit 1
+
+      - name: It serves, it migrated, and the scheduler is on
+        run: |
+          set -e
+          curl -fsS localhost:3000/api/health | grep -q '"status":"ok"'
+          applied=$(docker exec todo psql -U todo -d todo -tAc 'select count(*) from _prisma_migrations')
+          expected=$(ls -d prisma/migrations/2* | wc -l)
+          echo "migrations: applied=$applied expected=$expected"
+          [ "$applied" = "$expected" ]
+          docker logs todo 2>&1 | grep -q '\[jobs\] scheduler on'
+
+      - name: The database is not reachable from outside, and /api/cron stays closed
+        run: |
+          set -e
+          docker port todo | grep -qv 5432
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST localhost:3000/api/cron/tick)" = 404
+
+      - name: The volume has the ownership the two users need
+        run: |
+          set -e
+          test "$(docker exec todo stat -c '%a %u' /data/postgres)" = "700 70"
+          test "$(docker exec todo stat -c '%u' /data/uploads)" = "1001"
+          test "$(docker exec todo stat -c '%a' /data/secrets/session_secret)" = "600"
+
+      - name: It shuts down cleanly and keeps the data
+        run: |
+          set -e
+          docker exec todo psql -U todo -d todo -c 'create table ci_probe (note text); insert into ci_probe values ($$survived$$)'
+          docker stop -t 60 todo
+          test "$(docker inspect -f '{{.State.ExitCode}}' todo)" = "0"
+          docker logs todo 2>&1 | grep -q 'database system is shut down'
+          docker start todo
+          for i in $(seq 1 60); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' todo)" = healthy ] && break
+            sleep 2
+          done
+          test "$(docker exec todo psql -U todo -d todo -tAc 'select note from ci_probe')" = "survived"
+          docker logs todo 2>&1 | tail -n 40 | grep -qv 'was not properly shut down'
+          docker logs todo 2>&1 | tail -n 40 | grep -q 'No pending migrations'
+
+      - name: A cluster from another PostgreSQL major is refused, not opened
+        run: |
+          set -e
+          docker volume create ci-old
+          docker run --rm -v ci-old:/data busybox sh -c 'mkdir -p /data/postgres && echo 15 > /data/postgres/PG_VERSION'
+          set +e
+          out=$(docker run --rm -v ci-old:/data -e APP_BASE_URL=http://localhost:3000 open-todo:ci 2>&1)
+          code=$?
+          set -e
+          echo "$out"
+          [ "$code" != "0" ]
+          echo "$out" | grep -q 'PostgreSQL 15'
+
+      - name: A bind mount works too
+        run: |
+          set -e
+          mkdir -p "$PWD/ci-bind"
+          docker run -d --name todo-bind --shm-size=256m -v "$PWD/ci-bind":/data -p 3001:3000             -e APP_BASE_URL=http://localhost:3001 -e MOCK_MAIL=1 open-todo:ci
+          for i in $(seq 1 60); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' todo-bind)" = healthy ] && exit 0
+            sleep 2
+          done
+          docker logs todo-bind; exit 1
+
       - name: docker-compose.yml is valid
         env:
-          POSTGRES_PASSWORD: ci
           APP_BASE_URL: https://todo.example.com
-          SESSION_SECRET: ci-secret-that-is-long-enough-to-pass
-          CRON_KEY: ci-cron-key
         run: docker compose config --quiet
+
+      - name: Container logs
+        if: failure()
+        run: docker logs todo 2>&1 | tail -n 200; docker logs todo-bind 2>&1 | tail -n 50 || true

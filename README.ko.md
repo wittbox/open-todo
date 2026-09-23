@@ -30,31 +30,29 @@ Next.js 16 · React 19 · Prisma 7 · PostgreSQL. MIT 라이선스.
 
 ## Docker 로 시작하기
 
-Docker 와 Compose 플러그인, 그리고 주소로 닿을 수 있는 서버가 필요합니다.
+컨테이너 하나에 다 들어 있습니다 — 앱, 그 앱의 PostgreSQL, 예약 작업까지. 다시 올려도 남아야 하는 것
+(데이터베이스·첨부·자동으로 만든 세션 열쇠)은 볼륨 하나에 있습니다.
+
+```bash
+docker run -d --name todo \
+  -v todo-data:/data -p 3000:3000 --shm-size=256m \
+  -e APP_BASE_URL=https://todo.example.com \
+  ghcr.io/wittbox/open-todo:latest
+```
+
+`APP_BASE_URL` 은 사람들이 칠 주소입니다 — 메일 링크와 OAuth 콜백이 여기서 나옵니다. 정해야 하는 값은
+이것 하나뿐이고, 첫 기동이 데이터베이스를 만들고 마이그레이션을 적용하고 세션 열쇠를 볼륨에 적습니다.
+
+소스에서 빌드하려면(같은 이미지를 만들고 `.env` 를 읽습니다):
 
 ```bash
 git clone https://github.com/wittbox/open-todo.git
 cd open-todo
-cp .env.example .env
-```
-
-`.env` 에 네 가지를 채웁니다.
-
-```bash
-POSTGRES_PASSWORD=   # openssl rand -hex 24
-APP_BASE_URL=        # https://todo.example.com — 사람들이 칠 주소
-SESSION_SECRET=      # openssl rand -hex 32
-CRON_KEY=            # openssl rand -hex 32
-```
-
-그리고:
-
-```bash
+cp .env.example .env     # APP_BASE_URL 만 채우면 됩니다
 docker compose up -d --build
 ```
 
-컨테이너 넷이 뜹니다: PostgreSQL, 한 번 돌고 끝나는 마이그레이션, 3000 포트의 앱, 그리고 예약 작업
-주소를 두드려 주는 작은 사이드카. 앞에 HTTPS 리버스 프록시를 두고(아래) 주소를 엽니다.
+앞에 HTTPS 리버스 프록시를 두고(아래) 주소를 엽니다.
 
 **관리자 계정** 아무도 없는 설치에서는 첫 가입자가 관리자가 되고,
 인터넷에서 닿는 서버라면 시작 전에 `.env` 에
@@ -94,12 +92,12 @@ Google Auth Platform → 앱 만들기 → OAuth 클라이언트 ID(웹) → 리
 
 ## 환경 변수
 
+컨테이너 안에서 데이터베이스·첨부 폴더·예약 작업은 이미 이어져 있습니다. 아래는 바꿀 수 있는 것들입니다.
+
 | 변수 | 필수 | 하는 일 |
 |---|---|---|
-| `DATABASE_URL` | ○ | PostgreSQL 접속 주소. compose 가 넣어 준다. |
-| `DATABASE_POOL_MAX` | | 커넥션 풀 크기. 기본 10. |
 | `APP_BASE_URL` | ○ | 공개 주소. 메일 링크와 OAuth 콜백이 여기서 나오고, `https://` 여야 세션 쿠키에 `Secure` 가 붙는다. |
-| `SESSION_SECRET` | ○ | 세션 쿠키 서명. 32자 이상. 바꾸면 모두 로그아웃된다. |
+| `SESSION_SECRET` | | 세션 쿠키 서명. 32자 이상. 비워 두면 첫 기동 때 만들어 `/data/secrets` 에 넣는다. 바꾸면 모두 로그아웃된다. |
 | `APP_NAME` | | 제목·메일에 쓰는 설치 이름. 관리자가 `/admin` 에서 적은 이름이 우선한다. 기본 `open-todo`. |
 | `ADMIN_BOOTSTRAP_EMAIL` | | 첫 관리자 가입을 한 주소로 묶는다. |
 | `DEFAULT_LOCALE` | | 고르지 않은 사람에게 쓸 `ko` 또는 `en`. 기본 `ko`. |
@@ -110,10 +108,11 @@ Google Auth Platform → 앱 만들기 → OAuth 클라이언트 ID(웹) → 리
 | `REPORT_MAIL_MAX_RECIPIENTS` | | 보고서 한 번에 받는 사람 수. 기본 10. |
 | `REPORT_MAIL_DAILY_LIMIT` | | 한 사람이 24시간에 보낼 수 있는 수신자 합계. 기본 100. |
 | `GOOGLE_CLIENT_ID` `GOOGLE_CLIENT_SECRET` | | Google 로그인. |
-| `UPLOAD_DIR` | | 첨부를 쓰는 곳. compose 는 `./data/uploads` 를 붙인다. |
-| `CRON_KEY` | ○ | `/api/cron/*` 의 열쇠. 없으면 그 주소가 닫히고 예약된 것이 하나도 돌지 않는다. |
 | `MOCK_MAIL` | | `1` 이면 보내는 대신 `tmp/mail/*.html` 로 떨어뜨린다. 개발 전용. |
-| `POSTGRES_PASSWORD` `APP_PORT` | | `docker-compose.yml` 이 쓰는 값. |
+| `RUN_JOBS` | | `0` 이면 앱 안의 스케줄러를 끈다 — `/api/cron/*` 를 밖에서 두드리는 설치용. 컨테이너에서는 기본 켜짐. |
+| `CRON_KEY` | | `/api/cron/*` 의 열쇠. `RUN_JOBS=0` 일 때만 필요하다. 없으면 그 주소는 `404` 로 닫혀 있다. |
+| `APP_PORT` | | `docker-compose.yml` 이 여는 호스트 포트. 기본 3000. |
+| `DATABASE_URL` `DATABASE_POOL_MAX` `UPLOAD_DIR` | | 컨테이너 밖에서 개발할 때. 이미지는 자기 값을 쓴다. |
 
 앱은 시작할 때 이 값들을 살펴보고 빠졌거나 수상한 것을 `[setup]` 줄로 남깁니다.
 
@@ -151,16 +150,15 @@ server {
 
 ## 예약 작업
 
-아무도 보고 있지 않을 때 해야 하는 일은 주소 두 개가 맡습니다. 둘 다 `x-cron-key` 헤더를 붙인
-`POST` 를 받고, `CRON_KEY` 가 없으면 `404` 로 닫힙니다.
+아무도 보고 있지 않을 때 해야 하는 일이 있고, 앱이 그것을 스스로 돕니다.
 
-| 주소 | 주기 | 하는 일 |
+| 작업 | 주기 | 하는 일 |
 |---|---|---|
-| `/api/cron/tick` | 매시 | 미리 알림, 오늘 기한 알림, 각자 시간대의 아침 8시 요약, 다 쓴 링크 청소. |
-| `/api/cron/sends` | 5분마다 | 예약해 둔 보고서 메일. |
+| `tick` | 매시 | 미리 알림, 오늘 기한 알림, 각자 시간대의 아침 8시 요약, 다 쓴 링크 청소. |
+| `sends` | 5분마다 | 예약해 둔 보고서 메일. |
 
-`docker-compose.yml` 의 `cron` 컨테이너가 이미 이 일을 합니다. 다른 방식으로 돌린다면 아무 스케줄러나
-쓰면 됩니다.
+설정할 것은 없습니다. 밖에서 돌리고 싶다면(호스트의 cron, 쿠버네티스 CronJob 등) `RUN_JOBS=0` 과
+`CRON_KEY` 를 주고 주소 두 개를 두드리면 됩니다. 그 열쇠가 없으면 주소는 `404` 로 닫혀 있습니다.
 
 ```cron
 */5 * * * * curl -fsS -X POST -H "x-cron-key: $CRON_KEY" https://todo.example.com/api/cron/sends
@@ -170,21 +168,71 @@ server {
 ## 업데이트
 
 ```bash
+docker pull ghcr.io/wittbox/open-todo:latest
+docker stop todo && docker rm todo
+docker run -d --name todo -v todo-data:/data -p 3000:3000 --shm-size=256m \
+  -e APP_BASE_URL=https://todo.example.com ghcr.io/wittbox/open-todo:latest
+```
+
+클론에서 쓰고 있다면 `git pull && docker compose up -d --build` 입니다.
+
+컨테이너가 앱보다 먼저 새 마이그레이션을 적용합니다. PostgreSQL 메이저는 이미지에 들어 있으니,
+메이저가 올라가는 판은 릴리스 노트를 먼저 읽으세요(아래).
+
+## 백업
+
+상태를 가진 것은 전부 볼륨 안에 있습니다 — 데이터베이스, 첨부, 자동으로 만든 세션 열쇠.
+
+```bash
+docker exec todo pg_dump -U todo todo | gzip > backup-$(date +%F).sql.gz
+docker run --rm -v todo-data:/data -v "$PWD":/out alpine \
+  tar czf /out/data-$(date +%F).tar.gz -C /data uploads secrets
+```
+
+되돌릴 때는 `--db-only` 로 띄웁니다 — PostgreSQL 만 서고 앱은 서지 않아서, 손보는 동안 아무도 쓰지 않습니다.
+
+```bash
+docker run -d --name todo-restore -v todo-data:/data --shm-size=256m \
+  -e APP_BASE_URL=http://localhost:3000 ghcr.io/wittbox/open-todo:latest --db-only
+gunzip -c backup-2026-09-23.sql.gz | docker exec -i todo-restore psql -U todo -d todo
+docker rm -f todo-restore
+```
+
+그다음 평소대로 다시 띄웁니다. 덤프와 함께 `secrets/` 도 챙기세요 — 세션 열쇠를 잃으면 모두
+로그아웃되고, 업로드를 잃으면 목록에는 있는데 열리지 않는 첨부가 남습니다.
+
+## PostgreSQL 메이저 올리기
+
+이미지는 PostgreSQL 메이저 하나를 담고 있습니다. 나중 이미지가 더 높은 메이저로 가면, 예전 클러스터를
+건드리지 않고 **뜨지 않으면서** 로그로 알립니다. 방법은 덤프 → 갈아타기 → 복원입니다.
+
+```bash
+# 아직 예전 이미지가 떠 있을 때
+docker exec todo pg_dump -U todo todo | gzip > before-upgrade.sql.gz
+docker rm -f todo
+docker volume rm todo-data                 # 예전 클러스터 — 덤프는 손에 있습니다
+docker run -d --name todo-restore -v todo-data:/data --shm-size=256m \
+  -e APP_BASE_URL=http://localhost:3000 ghcr.io/wittbox/open-todo:새버전 --db-only
+gunzip -c before-upgrade.sql.gz | docker exec -i todo-restore psql -U todo -d todo
+docker rm -f todo-restore
+```
+
+볼륨을 새로 만들었다면 `uploads/` 와 `secrets/` 도 옮겨 놓습니다.
+
+## 컨테이너 넷에서 옮겨 오기
+
+0.2 이전 설치는 `db`·`migrate`·`app`·`cron` 을 나란히 띄웠습니다. 단일 컨테이너는 그 데이터를 그대로
+받아들입니다 — 같은 PostgreSQL 메이저, 같은 `todo` 역할, 같은 `./data` 폴더입니다.
+
+```bash
+docker compose down --remove-orphans   # 옛 db 컨테이너가 ./data/postgres 를 놓아야 합니다
 git pull
 docker compose up -d --build
 ```
 
-## 백업
-
-데이터베이스와 업로드 폴더를 백업합니다.
-
-```bash
-docker compose exec -T db pg_dump -U todo todo | gzip > backup-$(date +%F).sql.gz
-tar czf uploads-$(date +%F).tar.gz data/uploads
-```
-
-되돌릴 때는 빈 설치에서 `db` 만 먼저 띄우고 덤프를 `psql -U todo todo` 로 부은 뒤, 업로드를 풀고
-앱을 시작합니다.
+첫 기동이 기존 클러스터를 찾아 `pg_hba.conf` 에 한 줄을 더하고(컨테이너 안에서 앱이 닿도록) 밀린
+마이그레이션을 적용합니다. `POSTGRES_PASSWORD` 와 `CRON_KEY` 는 이제 필요 없고, `.env` 의
+`SESSION_SECRET` 은 그대로 쓰여서 아무도 로그아웃되지 않습니다.
 
 ## 개발
 
@@ -226,6 +274,9 @@ npm run build
 - 보고서 메일은 주소를 확인한 사람만, 한 번에 받는 사람 수와 하루 합계 안에서 보낼 수 있다 —
   설치가 스팸 중계기가 되지 않게.
 - 초대·확인·재설정 링크는 SHA-256 해시로만 저장하고, 원본은 딱 한 번 보여 준다.
+- 컨테이너 안의 PostgreSQL 은 루프백으로만 듣는다 — 밖으로 열지도, 다른 컨테이너에서 닿지도 않는다.
+  그래서 비밀번호 없이 신뢰(trust)로 두었고, 샐 비밀번호 자체가 없다. PID 1 은 볼륨을 준비할 때만
+  root 이고, 계속 도는 것은 권한을 낮춘 뒤다 — PostgreSQL 은 `postgres`, 앱은 따로 만든 계정.
 - 문제를 찾았다면 [SECURITY.md](SECURITY.md).
 
 ## 기여

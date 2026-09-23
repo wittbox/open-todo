@@ -70,6 +70,8 @@ describe("설치 점검", () => {
 
   it("cron 열쇠·메일 서버가 없으면 무엇이 멈추는지 알린다", () => {
     expect(has(messages({ ...OK, CRON_KEY: "" }), "warn", "morning digest")).toBe(true);
+    // 앱 안에서 도는 설치는 그 주소가 닫혀 있어도 된다.
+    expect(has(messages({ ...OK, CRON_KEY: "", RUN_JOBS: "1" }), "warn", "morning digest")).toBe(false);
     expect(has(messages(OK, { mailConfigured: false }), "warn", "No mail server")).toBe(true);
     // 개발에서는 메일이 파일로 떨어지므로 조용하다.
     expect(has(messages({ ...OK, NODE_ENV: "development" }, { mailConfigured: false }), "warn", "No mail server")).toBe(false);
