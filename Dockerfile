@@ -36,11 +36,14 @@ COPY prisma ./prisma
 COPY scripts/migrate-tree.mjs ./scripts/migrate-tree.mjs
 # 엔진 파일 이름에는 플랫폼이 붙는다(musl·openssl 버전). 이름을 적어 두는 대신 찾아서 한자리에 둔다 —
 # 그래야 런타임에 플랫폼을 다시 재지 않고 PRISMA_SCHEMA_ENGINE_BINARY 로 바로 가리킬 수 있다.
+# 마지막 `--version` 은 CLI 가 실제로 로드되는지 보는 점검이다. CLI 는 한 덩어리로 묶여 있어
+# 쓰지 않는 모듈까지 맨 위에서 부르므로, 빠진 것이 있으면 컨테이너 첫 기동이 아니라 여기서 멈춘다.
 RUN node scripts/migrate-tree.mjs /opt/migrate \
   && engine="$(find /opt/migrate/node_modules/@prisma/engines -maxdepth 1 -name 'schema-engine-*' -type f | head -1)" \
   && test -n "$engine" \
   && cp "$engine" /opt/migrate/schema-engine \
-  && chmod +x /opt/migrate/schema-engine
+  && chmod +x /opt/migrate/schema-engine \
+  && node /opt/migrate/node_modules/prisma/build/index.js --version
 
 # ── 실행 ────────────────────────────────────────────────────────
 FROM postgres:16-alpine3.22 AS runner
