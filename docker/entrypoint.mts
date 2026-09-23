@@ -99,6 +99,10 @@ function readIfExists(path: string): string | null {
 
 function prepareVolume(): void {
   mkdirSync(DATA_DIR, { recursive: true });
+  // 볼륨의 뿌리는 지나갈 수 있어야 한다. 도커가 만든 볼륨은 755 로 오지만,
+  // 700 짜리 호스트 폴더를 바인드 마운트하면 postgres(uid 70)·앱(uid 1001)이 제 폴더에 닿지 못한다
+  // ("could not access directory"). 지나가기만 열고 목록은 닫아 둔다 — 안의 폴더는 각자 제 권한을 갖는다.
+  chmodSync(DATA_DIR, 0o711);
   mkdirSync(UPLOAD_DIR, { recursive: true });
   mkdirSync(SECRETS_DIR, { recursive: true });
   mkdirSync(SOCKET_DIR, { recursive: true });

@@ -166,7 +166,10 @@ jobs:
       - name: A bind mount works too
         run: |
           set -e
+          # 700 on purpose: a host directory the owner alone can enter is the normal shape for
+          # a server, and the container's postgres (uid 70) has to be let through it.
           mkdir -p "$PWD/ci-bind"
+          chmod 700 "$PWD/ci-bind"
           docker run -d --name todo-bind --shm-size=256m -v "$PWD/ci-bind":/data -p 3001:3000             -e APP_BASE_URL=http://localhost:3001 -e MOCK_MAIL=1 open-todo:ci
           for i in $(seq 1 60); do
             [ "$(docker inspect -f '{{.State.Health.Status}}' todo-bind)" = healthy ] && exit 0
