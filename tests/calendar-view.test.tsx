@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import type { TaskItem } from "@/lib/queries/list";
-import { DEFAULT_PREFS, monthGrid, type CalendarList, type CalendarPrefs, type Ghost } from "@/lib/calendar";
+import { DEFAULT_PREFS, weekGrid, type CalendarList, type CalendarPrefs, type Ghost } from "@/lib/calendar";
 import { CalendarView } from "@/components/calendar/CalendarView";
 
 /**
@@ -60,7 +60,8 @@ const LISTS: CalendarList[] = [
   { id: "sales", name: "영업팀", groupName: null, color: "#b4009e", isInbox: false, writable: false },
 ];
 
-const SEP = monthGrid(new Date("2026-09-01T00:00:00.000Z"));
+// 8/30 ~ 10/3 — 오늘(9/11)이 둘째 줄
+const SEP = weekGrid(new Date("2026-08-30T00:00:00.000Z"));
 
 function show(
   over: Partial<{
@@ -70,11 +71,13 @@ function show(
     overdue: TaskItem[];
     lists: CalendarList[];
     prefs: CalendarPrefs;
+    weeks: string[][];
+    from: string;
   }> = {},
 ) {
   return render(
     <CalendarView
-      month="2026-09"
+      from="2026-08-30"
       today="2026-09-11"
       weeks={SEP.weeks}
       tasks={[]}
@@ -89,6 +92,42 @@ function show(
 }
 
 const cell = (date: string) => document.querySelector(`[data-date="${date}"]`) as HTMLElement;
+
+describe("보이는 5주", () => {
+  it("제목은 기간, ◀ ▶ 는 4주씩 — 넘긴 뒤 맨 윗줄이 방금 보던 맨 아랫줄", () => {
+    show();
+    const title = screen.getByRole("heading", { level: 2 }).textContent ?? "";
+    expect(title).toContain("8월 30일");
+    expect(title).toContain("10월 3일");
+    expect(title).not.toContain("2026");
+    expect(screen.getByRole("link", { name: "이전 4주" }).getAttribute("href")).toBe("/calendar?from=2026-08-02");
+    expect(screen.getByRole("link", { name: "다음 4주" }).getAttribute("href")).toBe("/calendar?from=2026-09-27");
+  });
+
+  it("일요일 칸에 그 줄 월요일의 ISO 주차 — 다른 칸에는 없다", () => {
+    show();
+    const week = (date: string) => cell(date).querySelector("[data-week]")?.textContent ?? null;
+    expect(["2026-08-30", "2026-09-06", "2026-09-13", "2026-09-20", "2026-09-27"].map(week)).toEqual([
+      "36주",
+      "37주",
+      "38주",
+      "39주",
+      "40주",
+    ]);
+    expect(week("2026-09-28")).toBeNull();
+    expect(cell("2026-09-27").querySelector("[data-week]")!.getAttribute("title")).toMatch(/^40주차 \(.*28.*~.*4.*\)$/);
+  });
+
+  it("달이 바뀌는 날은 선 대신 '10월' 딱지 — 칸 모양은 하나, 지난 날도 흐리지 않다", () => {
+    show();
+    const tag = (date: string) => cell(date).querySelector("[data-month-start]")?.textContent ?? null;
+    expect(tag("2026-09-01")).toBe("9월");
+    expect(tag("2026-10-01")).toBe("10월");
+    expect(tag("2026-09-15")).toBeNull();
+    expect(cell("2026-10-01").className).toBe(cell("2026-09-15").className);
+    expect(cell("2026-08-31").className).toBe(cell("2026-09-15").className);
+  });
+});
 
 describe("달력 칸", () => {
   it("작업은 기한 날짜 칸에 놓이고, 지난 기한만 '기한 지남' 이다", () => {
@@ -287,6 +326,21 @@ describe("폰 — 점 달력 + 그날 목록", () => {
     expect(within(list).getByText("출고준비")).toBeTruthy();
     expect(within(list).getByText("주간업무보고")).toBeTruthy();
     expect(within(list).queryByText("제품 문서 개정")).toBeNull();
+  });
+
+  it("PC 와 같은 5주 — 달 밖이라 흐린 날 없이, 1일은 '10/1'", () => {
+    show();
+    const days = [...document.querySelectorAll("[data-day]")] as HTMLElement[];
+    expect(days).toHaveLength(35);
+    expect([days[0].dataset.day, days[34].dataset.day]).toEqual(["2026-08-30", "2026-10-03"]);
+    expect(days.some((d) => d.className.includes("opacity"))).toBe(false);
+    expect(day("2026-10-01").textContent).toContain("10/1");
+  });
+
+  it("오늘이 안 보이는 기간으로 넘기면 둘째 줄 첫날이 골라진다", () => {
+    const later = weekGrid(new Date("2026-10-25T00:00:00.000Z"));
+    show({ weeks: later.weeks, from: "2026-10-25" });
+    expect(day("2026-11-01").getAttribute("aria-pressed")).toBe("true");
   });
 
   it("날을 누르면 목록이 그날로 바뀐다. 빈 날은 빈 줄 안내", () => {

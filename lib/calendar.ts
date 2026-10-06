@@ -24,46 +24,71 @@ export type CalendarList = {
 /** 반복 작업의 다음 회차 하나. 실제 작업이 아니라 "제때 끝내면 생길 날" 이다. */
 export type Ghost = { taskId: string; date: string };
 
-/* ── 달과 칸 ─────────────────────────────────────────────────── */
+/* ── 보이는 주들 ─────────────────────────────────────────────── */
 
-/** "2026-09" → 그 달 1일. 못 읽으면 today 가 속한 달. */
-export function parseMonth(raw: unknown, today: Date): Date {
-  if (typeof raw === "string") {
-    const m = /^(\d{4})-(\d{2})$/.exec(raw);
-    if (m) {
-      const y = Number(m[1]);
-      const mo = Number(m[2]);
-      if (y >= 2000 && y <= 2100 && mo >= 1 && mo <= 12) return new Date(Date.UTC(y, mo - 1, 1));
-    }
-  }
-  return new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+/**
+ * 달력은 달이 아니라 **5주**를 본다: 지난 1주 · 이번 주 · 앞으로 3주.
+ * 달 단위로 그리면 달 끝으로 갈수록 이번 주가 맨 아래로 내려가 앞일이 잘린다.
+ * 이번 주를 늘 둘째 줄에 두면 어느 날이든 3주 앞까지 보인다.
+ */
+export const CALENDAR_WEEKS = 5;
+/** ◀ ▶ 한 번에 넘기는 주. 5보다 하나 적게 — 넘긴 뒤 맨 윗줄이 방금 보던 맨 아랫줄이다. */
+export const PAGE_WEEKS = CALENDAR_WEEKS - 1;
+
+/** 그 날이 든 주의 일요일. 주는 일요일에 시작한다(기한 고르는 작은 달력과 같게). */
+export function weekStart(d: Date): Date {
+  return addDays(d, -d.getUTCDay());
 }
 
-/** 그 달 1일 → "2026-09" */
-export function monthKey(month: Date): string {
-  return dateOnlyToString(month).slice(0, 7);
-}
-
-export function shiftMonth(month: Date, by: number): Date {
-  return new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + by, 1));
+/** 처음 여는 달력의 첫 주 — 이번 주 바로 앞 주. 그래야 이번 주가 둘째 줄이다. */
+export function defaultFrom(today: Date): Date {
+  return addDays(weekStart(today), -7);
 }
 
 /**
- * 그 달을 덮는 주들. 일요일에 시작한다(기한 고르는 작은 달력과 같게).
- *
- * 작은 달력은 높이를 고정하려고 늘 6주를 그리지만, 여기서는 그 달에 필요한 주만
- * 그린다(4~6주) — 칸이 높을수록 작업이 더 많이 보인다.
- * end 는 마지막 주 다음 일요일이며 범위에 들지 않는다.
+ * 주소의 `?from=YYYY-MM-DD` → 첫 주의 일요일(다른 요일이면 그 주 일요일로 맞춘다).
+ * 예전 `?month=YYYY-MM` 링크는 그 달 1일이 든 주를 둘째 줄에 둔다. 못 읽으면 기본값.
  */
-export function monthGrid(month: Date): { start: Date; end: Date; weeks: string[][] } {
-  const start = addDays(month, -month.getUTCDay());
-  const last = addDays(shiftMonth(month, 1), -1);
-  const end = addDays(last, 7 - last.getUTCDay());
-  const count = Math.round((end.getTime() - start.getTime()) / (7 * 86_400_000));
-  const weeks = Array.from({ length: count }, (_, w) =>
+export function parseFrom(q: { from?: unknown; month?: unknown }, today: Date): Date {
+  if (typeof q.from === "string") {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(q.from);
+    if (m) {
+      const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+      const date = new Date(Date.UTC(y, mo - 1, d));
+      // 2026-02-31 같은 것은 Date 가 3월로 넘겨 버린다 — 되돌려 보아 같을 때만 받는다.
+      if (y >= 2000 && y <= 2100 && date.getUTCMonth() === mo - 1 && date.getUTCDate() === d) return weekStart(date);
+    }
+  }
+  if (typeof q.month === "string") {
+    const m = /^(\d{4})-(\d{2})$/.exec(q.month);
+    if (m) {
+      const [y, mo] = [Number(m[1]), Number(m[2])];
+      if (y >= 2000 && y <= 2100 && mo >= 1 && mo <= 12) return defaultFrom(new Date(Date.UTC(y, mo - 1, 1)));
+    }
+  }
+  return defaultFrom(today);
+}
+
+export function shiftWeeks(from: Date, by: number): Date {
+  return addDays(from, by * 7);
+}
+
+/** 첫 주부터 5주. end 는 마지막 주 다음 일요일이며 범위에 들지 않는다. */
+export function weekGrid(from: Date): { start: Date; end: Date; weeks: string[][] } {
+  const start = weekStart(from);
+  const end = addDays(start, CALENDAR_WEEKS * 7);
+  const weeks = Array.from({ length: CALENDAR_WEEKS }, (_, w) =>
     Array.from({ length: 7 }, (_, d) => dateOnlyToString(addDays(start, w * 7 + d))),
   );
   return { start, end, weeks };
+}
+
+/**
+ * 위 줄 제목("9월 20일 – 10월 24일")에 연도를 붙일지 — 해가 걸치거나 올해가 아닌 해를 볼 때만.
+ * 글자는 화면이 Intl 의 기간 서식으로 만든다(언어마다 모양이 다르다).
+ */
+export function rangeNeedsYear(first: string, last: string, today: string): boolean {
+  return first.slice(0, 4) !== last.slice(0, 4) || first.slice(0, 4) !== today.slice(0, 4);
 }
 
 /* ── 반복 회차 ───────────────────────────────────────────────── */

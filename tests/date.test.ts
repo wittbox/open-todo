@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, dateOnly, daysFromToday, isOverdue, todayDateOnly } from "@/lib/date";
+import { addDays, dateOnly, daysFromToday, isOverdue, isoWeek, todayDateOnly } from "@/lib/date";
 import { DATE_ONLY, shortDayLabel } from "@/lib/format";
 import { formatterFor } from "@/i18n/server";
 
@@ -62,4 +62,32 @@ describe("isOverdue", () => {
   it("어제는 지났다", () => expect(isOverdue(dateOnly(2026, 8, 8), now)).toBe(true));
   it("오늘은 아직 안 지났다", () => expect(isOverdue(dateOnly(2026, 8, 9), now)).toBe(false));
   it("내일은 안 지났다", () => expect(isOverdue(dateOnly(2026, 8, 10), now)).toBe(false));
+});
+
+describe("isoWeek — ISO 8601, 월요일 시작, 첫 목요일이 든 주가 1주", () => {
+  const W = (s: string) => isoWeek(new Date(`${s}T00:00:00.000Z`));
+
+  it("2026-09-28(월)~10-04(일)은 40주, 그 앞 일요일 9/27 은 39주의 끝", () => {
+    expect(W("2026-09-27")).toBe(39);
+    for (const d of ["2026-09-28", "2026-09-29", "2026-10-03", "2026-10-04"]) expect(W(d)).toBe(40);
+  });
+
+  it("해 경계 — 2026 은 목요일로 시작해 53주까지, 2027-01-03 까지가 53주", () => {
+    expect(W("2025-12-29")).toBe(1); // 2026 1주의 월요일
+    expect(W("2026-01-01")).toBe(1);
+    expect(W("2026-12-28")).toBe(53);
+    expect(W("2027-01-03")).toBe(53);
+    expect(W("2027-01-04")).toBe(1);
+    expect(W("2021-01-03")).toBe(53); // 2020 도 53주
+    expect(W("2024-12-30")).toBe(1); // 2025 1주
+  });
+
+  it("월~일이 늘 같은 번호다", () => {
+    let monday = new Date("2025-01-06T00:00:00.000Z");
+    for (let w = 0; w < 160; w++) {
+      const n = isoWeek(monday);
+      for (let i = 1; i < 7; i++) expect(isoWeek(addDays(monday, i))).toBe(n);
+      monday = addDays(monday, 7);
+    }
+  });
 });

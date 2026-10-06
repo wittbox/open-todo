@@ -1,8 +1,12 @@
 {
   "title": "Calendar",
   "prevMonth": "Previous month",
+  "prevWeeks": "Previous {count} weeks",
   "nextMonth": "Next month",
+  "nextWeeks": "Next {count} weeks",
   "today": "Today",
+  "week": "W{week}",
+  "weekTitle": "Week {week} ({from} – {to})",
   "close": "Close",
   "clear": "Clear",
   "collapse": "Collapse",

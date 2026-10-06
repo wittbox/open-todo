@@ -16,8 +16,8 @@ Built with Next.js 16, React 19, Prisma 7 and PostgreSQL. MIT licensed.
 - **Tasks** — lists inside groups, steps, due dates, reminders, repeats, importance,
   attachments and notes. Share a list or a whole group with someone as viewer, editor or
   admin. Assign work and it shows up under *Assigned to me*.
-- **Calendar** — everything with a due date, month by month, with public holidays. Drag a
-  task to another day.
+- **Calendar** — everything with a due date over five rolling weeks (last week, this week, the next
+  three), with public holidays and ISO week numbers. Drag a task to another day.
 - **Projects** — a conversation channel per project, with threads, @mentions, files and
   unread marks. Projects can be open to everyone on the install or invite-only.
 - **Weekly reports** — one click collects the week's work into *Done this week*, *In

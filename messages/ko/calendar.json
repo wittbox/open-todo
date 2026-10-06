@@ -1,8 +1,12 @@
 {
   "title": "달력",
   "prevMonth": "이전 달",
+  "prevWeeks": "이전 {count}주",
   "nextMonth": "다음 달",
+  "nextWeeks": "다음 {count}주",
   "today": "오늘",
+  "week": "{week}주",
+  "weekTitle": "{week}주차 ({from} ~ {to})",
   "close": "닫기",
   "clear": "지우기",
   "collapse": "접기",

@@ -82,3 +82,13 @@ export function dayRange(startDateOnly: Date, days: number, tz: string = DEFAULT
   return { from: dayStart(startDateOnly, tz), to: dayStart(addDays(startDateOnly, days), tz) };
 }
 
+/**
+ * ISO 8601 주차 — 주는 월요일에 시작하고, 그해 첫 목요일이 든 주가 1주차다.
+ * 그래서 1월 초가 전해 52·53주이거나 12월 말이 이듬해 1주일 수 있다(2026-12-31 은 53주, 2027-01-03 도 53주).
+ */
+export function isoWeek(dateOnlyValue: Date): number {
+  // 그 주의 목요일이 속한 해가 그 주의 해다.
+  const thursday = addDays(dateOnlyValue, 3 - ((dateOnlyValue.getUTCDay() + 6) % 7));
+  const jan1 = Date.UTC(thursday.getUTCFullYear(), 0, 1);
+  return Math.floor((thursday.getTime() - jan1) / (7 * 86_400_000)) + 1;
+}

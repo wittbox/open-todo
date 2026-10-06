@@ -33,14 +33,15 @@ import { handledAuthFailure, runAction } from "@/lib/actions/session-guard";
 import {
   CALENDAR_PREFS_COOKIE,
   compareCellEntries,
-  monthKey,
+  PAGE_WEEKS,
+  rangeNeedsYear,
   serializePrefs,
-  shiftMonth,
+  shiftWeeks,
   type CalendarList,
   type CalendarPrefs,
   type Ghost,
 } from "@/lib/calendar";
-import { dateOnlyFromString } from "@/lib/date";
+import { addDays, dateOnlyFromString, dateOnlyToString, isoWeek } from "@/lib/date";
 import { useFormatter, useTranslations } from "next-intl";
 import { DATE_ONLY } from "@/lib/format";
 import { holidayName, type HolidayRegion } from "@/lib/holidays";
@@ -72,8 +73,14 @@ const GRID_LINE = "rgba(138,75,60,.16)";
  * 날짜를 찍는 옵션. 칸의 날짜는 UTC 자정 기준 date-only 라 반드시 `timeZone: "UTC"` 다
  * (lib/format.ts 규약). 여기 있는 셋은 lib/format.ts 의 것과 달리 이 화면에서만 쓴다.
  */
-/** "2026년 9월" · "September 2026" */
-const MONTH_TITLE = { year: "numeric", month: "long", timeZone: "UTC" } as const;
+/** 위 줄 기간 — "9월 20일 – 10월 24일" · "September 20 – October 24". 연도는 필요할 때만 붙인다. */
+const RANGE_TITLE = { month: "long", day: "numeric", timeZone: "UTC" } as const;
+
+/** 달이 바뀌는 날의 딱지 — "10월" · "Oct" */
+const MONTH_TAG = { month: "short", timeZone: "UTC" } as const;
+
+/** 주차 풀이의 날짜 — "9. 28. (월)" · "Mon, 9/28" */
+const WEEK_DAY = { weekday: "short", month: "numeric", day: "numeric", timeZone: "UTC" } as const;
 
 /** "7월 28일" · "July 28" — 요일이 필요 없는 지난 기한 줄 */
 const MONTH_DAY = { month: "long", day: "numeric", timeZone: "UTC" } as const;
@@ -102,7 +109,7 @@ const applyChanges = (prev: TaskItem[], p: { id: string; changes: Changes }) =>
   prev.map((t) => (t.id === p.id ? { ...t, ...p.changes } : t));
 
 export function CalendarView({
-  month,
+  from,
   today,
   weeks,
   tasks,
@@ -115,8 +122,8 @@ export function CalendarView({
   meId,
   holidays = "kr",
 }: {
-  /** "2026-09" */
-  month: string;
+  /** 첫 주의 일요일 "YYYY-MM-DD" — 5주가 여기서 시작한다 */
+  from: string;
   /** 서울 기준 오늘 "YYYY-MM-DD" — 서버가 정해 준다(브라우저 시계로 기한 지남을 가르지 않는다) */
   today: string;
   weeks: string[][];
@@ -126,7 +133,7 @@ export function CalendarView({
   ghostSources: TaskItem[];
   /** 공휴일을 어느 나라 것으로 표시할지 — 설치 설정(서버가 정해 준다) */
   holidays?: HolidayRegion;
-  /** 기한이 오늘 전인 미완료 작업 전부(오래된 순) — 보는 달과 상관없다 */
+  /** 기한이 오늘 전인 미완료 작업 전부(오래된 순) — 보는 기간과 상관없다 */
   overdue?: TaskItem[];
   /** 서버가 상한까지만 실었다 */
   overdueMore?: boolean;
@@ -149,11 +156,11 @@ export function CalendarView({
   const [slots, setSlots] = useState(4);
   const gridRef = useRef<HTMLDivElement>(null);
   const phone = useMediaQuery(PHONE_QUERY, false);
-  // 폰에서 목록을 보여 줄 날. 이번 달이면 오늘, 아니면 1일(달을 넘기면 화면이 새로 붙어 다시 정한다).
-  const [day, setDay] = useState(() => (today.startsWith(month) ? today : `${month}-01`));
+  // 폰에서 목록을 보여 줄 날. 오늘이 보이면 오늘, 아니면 둘째 줄 첫날(넘기면 화면이 새로 붙어 다시 정한다).
+  const [day, setDay] = useState(() => (weeks.some((w) => w.includes(today)) ? today : weeks[1][0]));
 
   const [patched, applyOptimistic] = useOptimistic(tasks, applyChanges);
-  // 지난 기한 줄의 작업은 대개 칸 밖(이전 달)이라 따로 고친다. 이번 달 것은 양쪽에 다 있다.
+  // 지난 기한 줄의 작업은 대개 칸 밖(보는 기간 앞)이라 따로 고친다. 기간 안의 것은 양쪽에 다 있다.
   const [overduePatched, applyOverdue] = useOptimistic(overdue, applyChanges);
 
   const listById = useMemo(() => new Map(lists.map((l) => [l.id, l])), [lists]);
@@ -300,7 +307,11 @@ export function CalendarView({
     };
   }
 
-  const monthStart = dateOnlyFromString(`${month}-01`);
+  const fromDate = dateOnlyFromString(from);
+  const pageHref = (by: number) => `/calendar?from=${dateOnlyToString(shiftWeeks(fromDate, by * PAGE_WEEKS))}`;
+  const days = weeks.flat();
+  const first = days[0];
+  const last = days[days.length - 1];
   const navBtn =
     "grid h-7 min-w-8 place-items-center rounded bg-[var(--row)] px-1.5 text-[var(--on)] hover:bg-[var(--row-hover)]";
   const pill =
@@ -313,8 +324,8 @@ export function CalendarView({
       <div className={phone ? "flex flex-col pb-6" : "flex h-full min-h-[520px] flex-col pb-6"}>
         <div className="mb-2.5 flex flex-wrap items-center gap-1.5">
           <Link
-            href={`/calendar?month=${monthKey(shiftMonth(monthStart, -1))}`}
-            aria-label={t("prevMonth")}
+            href={pageHref(-1)}
+            aria-label={t("prevWeeks", { count: PAGE_WEEKS })}
             className={navBtn}
           >
             <Icon name="chevronRight" size={15} className="rotate-180" />
@@ -323,14 +334,17 @@ export function CalendarView({
             {t("today")}
           </Link>
           <Link
-            href={`/calendar?month=${monthKey(shiftMonth(monthStart, 1))}`}
-            aria-label={t("nextMonth")}
+            href={pageHref(1)}
+            aria-label={t("nextWeeks", { count: PAGE_WEEKS })}
             className={navBtn}
           >
             <Icon name="chevronRight" size={15} />
           </Link>
           <h2 className="ml-2 text-[17px] font-semibold text-[var(--on)]">
-            {format.dateTime(monthStart, MONTH_TITLE)}
+            {format.dateTimeRange(dateOnlyFromString(first), dateOnlyFromString(last), {
+              ...RANGE_TITLE,
+              ...(rangeNeedsYear(first, last, today) ? { year: "numeric" } : {}),
+            })}
           </h2>
 
           <div className="ml-auto flex items-center gap-2 text-[12.5px] text-[var(--on-muted)]">
@@ -404,7 +418,6 @@ export function CalendarView({
           {phone && (
             <>
               <PhoneMonth
-                month={month}
                 weeks={weeks}
                 today={today}
                 selected={day}
@@ -473,11 +486,10 @@ export function CalendarView({
               </div>
             ))}
 
-            {weeks.flat().map((date) => (
+            {days.map((date) => (
               <DayCell
                 key={date}
                 date={date}
-                inMonth={date.startsWith(month)}
                 isToday={date === today}
                 entries={byDate.get(date) ?? []}
                 slots={slots}
@@ -571,7 +583,6 @@ export function CalendarView({
 
 function DayCell({
   date,
-  inMonth,
   isToday,
   entries,
   slots,
@@ -582,7 +593,6 @@ function DayCell({
   holidays,
 }: {
   date: string;
-  inMonth: boolean;
   isToday: boolean;
   entries: Entry[];
   slots: number;
@@ -627,9 +637,7 @@ function DayCell({
           ? "bg-[rgba(37,100,207,.08)] outline-2 -outline-offset-[3px] outline-dashed outline-link"
           : isToday
             ? "bg-white/70"
-            : inMonth
-              ? "bg-white/40"
-              : "bg-white/15",
+            : "bg-white/40",
       ].join(" ")}
       style={{ borderColor: GRID_LINE }}
     >
@@ -644,11 +652,22 @@ function DayCell({
                 : weekday === 6
                   ? "text-link"
                   : "text-ink",
-            !inMonth && !isToday ? "opacity-45" : "",
           ].join(" ")}
         >
-          {day === 1 ? `${d.getUTCMonth() + 1}/1` : day}
+          {day}
         </span>
+        {/* 일요일 칸(줄 첫 칸)에 그 줄의 ISO 주차. 달력 줄은 일요일에, ISO 주는 월요일에 시작하므로
+            줄의 월~토가 속한 주 — 월요일의 주차를 쓴다. */}
+        {weekday === 0 && <WeekNo monday={addDays(d, 1)} />}
+        {/* 5주는 거의 늘 두 달에 걸친다. 달이 바뀌는 날은 선 대신 딱지로 알린다(선은 칸 모양을 둘로 갈라 눈이 먼저 그리로 갔다). */}
+        {day === 1 && (
+          <span
+            data-month-start=""
+            className="shrink-0 rounded-lg bg-[var(--on)]/10 px-1.5 text-[10.5px] font-semibold leading-[17px] text-[var(--on)]"
+          >
+            {format.dateTime(d, MONTH_TAG)}
+          </span>
+        )}
         {holiday && <span className="truncate text-[11px] text-danger">{holiday}</span>}
       </div>
 
@@ -684,8 +703,26 @@ function DayCell({
  * 폰의 월 달력. 칸에는 날짜와 점(작업마다 하나, 셋까지)만. 점 색은 목록 색이고
  * 기한 지난 미완료는 빨강, 완료는 회색, 반복 다음 회차는 테두리만.
  */
+function WeekNo({ monday }: { monday: Date }) {
+  const t = useTranslations("calendar");
+  const format = useFormatter();
+  const week = isoWeek(monday);
+  return (
+    <span
+      data-week=""
+      title={t("weekTitle", {
+        week,
+        from: format.dateTime(monday, WEEK_DAY),
+        to: format.dateTime(addDays(monday, 6), WEEK_DAY),
+      })}
+      className="shrink-0 text-[10.5px] text-[var(--on-muted)]"
+    >
+      {t("week", { week })}
+    </span>
+  );
+}
+
 function PhoneMonth({
-  month,
   weeks,
   today,
   selected,
@@ -694,7 +731,6 @@ function PhoneMonth({
   onPick,
   holidays,
 }: {
-  month: string;
   weeks: string[][];
   today: string;
   selected: string;
@@ -739,11 +775,12 @@ function PhoneMonth({
                   entries.length ? t("dayWithTasks", { day: dayLabel, count: entries.length }) : dayLabel
                 }
                 onClick={() => onPick(date)}
-                className={`flex h-12 flex-col items-center gap-0.5 pt-1 ${date.startsWith(month) ? "" : "opacity-40"}`}
+                className="flex h-12 flex-col items-center gap-0.5 pt-1"
               >
                 <span
                   className={[
-                    "grid h-7 w-7 place-items-center rounded-full text-[13px]",
+                    "grid h-7 min-w-7 place-items-center rounded-full px-0.5 text-[13px]",
+                    d.getUTCDate() === 1 ? "font-bold" : "",
                     isToday
                       ? "bg-[var(--on)] font-semibold text-white"
                       : weekday === 0 || holiday
@@ -754,7 +791,7 @@ function PhoneMonth({
                     isSelected ? "ring-2 ring-link ring-offset-1" : "",
                   ].join(" ")}
                 >
-                  {d.getUTCDate()}
+                  {d.getUTCDate() === 1 ? `${d.getUTCMonth() + 1}/1` : d.getUTCDate()}
                 </span>
                 <span className="flex h-[5px] gap-[3px]" aria-hidden="true">
                   {entries.slice(0, 3).map((e) => {
