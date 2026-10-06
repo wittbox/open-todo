@@ -26,7 +26,19 @@
   "listName": "목록 이름",
   "newList": "새 목록",
   "newGroup": "새 그룹",
-  "untitledGroup": "제목 없는 그룹",
+  "create": {
+    "groupTitle": "새 그룹",
+    "groupName": "그룹 이름",
+    "groupHint": "내 그룹들 맨 아래에 만들어집니다",
+    "listTitle": "새 목록",
+    "listName": "목록 이름",
+    "listGroup": "들어갈 그룹",
+    "noGroupsYet": "아직 그룹이 없어 같이 만듭니다",
+    "newGroupOption": "＋ 새 그룹…",
+    "newGroupName": "새 그룹 이름",
+    "cancel": "취소",
+    "submit": "만들기"
+  },
   "noPermission": "권한 없음",
   "pendingPhase7": "7단계",
   "pendingNone": "없음",
@@ -47,9 +59,7 @@
     "rename": "목록 이름 바꾸기",
     "share": "목록 공유",
     "move": "목록을 다음 위치로 이동…",
-    "removeFromGroup": "그룹에서 제거",
-    "outOfGroup": "그룹에서 빼기",
-    "noTargetGroup": "옮길 그룹이 없습니다",
+    "noOtherGroup": "옮길 다른 그룹이 없습니다",
     "print": "목록 인쇄",
     "mail": "전자 메일로 목록 보내기",
     "duplicate": "목록 복제",
@@ -59,8 +69,9 @@
   "groupMenu": {
     "rename": "그룹 이름 바꾸기",
     "share": "그룹 공유",
-    "ungroup": "그룹 해제",
-    "confirmUngroup": "''{name}'' 그룹을 해제합니다. 안에 있던 목록은 최상위로 이동합니다."
+    "delete": "그룹 삭제",
+    "confirmDelete": "''{name}'' 그룹을 삭제합니다.",
+    "hasLists": "목록 {count}개 있음"
   },
   "error": {
     "staleTitle": "새 버전이 올라왔습니다",

@@ -7,7 +7,7 @@ import { assertCan, PermissionError } from "@/lib/permissions";
 import { orderAfter, orderSequence } from "@/lib/ordering";
 import { THEMES } from "@/lib/theme";
 import type { ListSortBy } from "@/app/generated/prisma/enums";
-import { cleanName, deleteSharesFor, orderBetweenLists, run, type ActionResult } from "./_helpers";
+import { ActionError, cleanName, deleteSharesFor, orderBetweenLists, run, type ActionResult } from "./_helpers";
 import { getRequestPrefs } from "@/lib/prefs";
 import { translatorFor } from "@/i18n/server";
 
@@ -21,34 +21,73 @@ async function tasksText(key: string, values?: Record<string, string | number>):
   return (translatorFor(locale) as unknown as (k: string, v?: Record<string, string | number>) => string)(key, values);
 }
 
-async function nextOrderIn(userId: string, groupId: string | null): Promise<string> {
+/**
+ * 목록은 늘 그룹 안에 있다(기본 목록만 예외). 그 전에 그룹 밖에 있던 목록은 마이그레이션
+ * `20261006000000_lists_always_in_group` 이 주인마다 '기타' 그룹으로 모았다.
+ * 그룹 밖으로 내보내는 길(빼기·해제·끌어 놓기)은 모두 닫혀 있다 — 화면만이 아니라 여기서도.
+ */
+function requireGroupId(groupId: string | null | undefined): string {
+  if (!groupId) throw ActionError.key("tasks.errors.needsGroup");
+  return groupId;
+}
+
+async function nextOrderIn(groupId: string): Promise<string> {
   const last = await prisma.list.findFirst({
-    where: groupId ? { groupId } : { ownerId: userId, groupId: null },
+    where: { groupId },
     orderBy: { order: "desc" },
     select: { order: true },
   });
   return orderAfter(last?.order ?? null);
 }
 
+/** 내 그룹들 맨 아래에 그룹 하나를 만든다('새 그룹' 버튼과 같은 자리). */
+async function createOwnGroup(userId: string, name: string): Promise<string> {
+  const last = await prisma.group.findFirst({
+    where: { ownerId: userId },
+    orderBy: { order: "desc" },
+    select: { order: true },
+  });
+  const group = await prisma.group.create({
+    data: {
+      ownerId: userId,
+      name: cleanName(name, await tasksText("tasks.defaults.group")),
+      order: orderAfter(last?.order ?? null),
+    },
+    select: { id: true },
+  });
+  return group.id;
+}
+
+/**
+ * 목록 만들기. 들어갈 그룹은 이미 있는 그룹(`groupId`)이거나, 같이 만들 새 그룹 이름(`newGroupName`)이다 —
+ * 그룹이 하나도 없는 사람도 '새 목록' 한 번으로 그룹과 목록을 함께 만든다.
+ */
 export async function createList(
   name: string,
-  groupId: string | null = null,
-): Promise<ActionResult<{ id: string }>> {
+  target: { groupId: string } | { newGroupName: string },
+): Promise<ActionResult<{ id: string; groupId: string }>> {
   return run(async () => {
     const userId = await requireUserId();
-    if (groupId) await assertCan(userId, "manage", { kind: "group", id: groupId });
+    let groupId: string;
+    if ("groupId" in target) {
+      groupId = requireGroupId(target.groupId);
+      await assertCan(userId, "manage", { kind: "group", id: groupId });
+    } else {
+      if (!target.newGroupName?.trim()) throw ActionError.key("tasks.errors.groupNameRequired");
+      groupId = await createOwnGroup(userId, target.newGroupName);
+    }
 
     const list = await prisma.list.create({
       data: {
         ownerId: userId,
         groupId,
         name: cleanName(name, await tasksText("tasks.defaults.list")),
-        order: await nextOrderIn(userId, groupId),
+        order: await nextOrderIn(groupId),
       },
       select: { id: true },
     });
     refresh();
-    return list;
+    return { id: list.id, groupId };
   });
 }
 
@@ -87,17 +126,21 @@ export async function duplicateList(id: string): Promise<ActionResult<{ id: stri
       include: { tasks: { orderBy: { order: "asc" }, include: { steps: { orderBy: { order: "asc" } } } } },
     });
 
+    // 복사본도 그룹 안에 둔다 — 원본 그룹이 내 것이면 거기, 아니면(공유받은 목록·기본 목록) 내 그룹 맨 아래,
+    // 내 그룹이 하나도 없으면 '기타' 를 만든다. 예전에는 남의 그룹 id 를 그대로 달고 생겼다.
+    const groupId = await groupForCopy(userId, src.groupId);
+
     const copy = await prisma.list.create({
       data: {
         ownerId: userId,
-        groupId: src.groupId,
+        groupId,
         name: await tasksText("tasks.defaults.copy", { name: src.name }),
         themeKey: src.themeKey,
         backgroundKey: src.backgroundKey,
         sortBy: src.sortBy,
         showCompleted: src.showCompleted,
         showSeq: src.showSeq,
-        order: await nextOrderIn(userId, src.groupId),
+        order: await nextOrderIn(groupId),
       },
       select: { id: true },
     });
@@ -136,19 +179,33 @@ export async function duplicateList(id: string): Promise<ActionResult<{ id: stri
   });
 }
 
+async function groupForCopy(userId: string, srcGroupId: string | null): Promise<string> {
+  if (srcGroupId) {
+    const g = await prisma.group.findUnique({ where: { id: srcGroupId }, select: { ownerId: true } });
+    if (g?.ownerId === userId) return srcGroupId;
+  }
+  const last = await prisma.group.findFirst({
+    where: { ownerId: userId },
+    orderBy: { order: "desc" },
+    select: { id: true },
+  });
+  return last?.id ?? (await createOwnGroup(userId, await tasksText("tasks.defaults.otherGroup")));
+}
+
 /**
- * 목록을 다른 그룹으로 옮기거나(groupId) 그룹에서 빼낸다(null).
+ * 목록을 다른 그룹으로 옮긴다. 그룹 밖으로는 옮길 수 없다(목록은 늘 그룹 안).
  * 대상 그룹에도 관리 권한이 있어야 한다.
  */
-export async function moveListToGroup(id: string, groupId: string | null): Promise<ActionResult> {
+export async function moveListToGroup(id: string, groupId: string): Promise<ActionResult> {
   return run(async () => {
     const userId = await requireUserId();
+    const target = requireGroupId(groupId);
     await assertCan(userId, "manage", { kind: "list", id });
-    if (groupId) await assertCan(userId, "manage", { kind: "group", id: groupId });
+    await assertCan(userId, "manage", { kind: "group", id: target });
 
     await prisma.list.update({
       where: { id },
-      data: { groupId, order: await nextOrderIn(userId, groupId) },
+      data: { groupId: target, order: await nextOrderIn(target) },
     });
     refresh();
   });
@@ -181,17 +238,18 @@ export async function updateListSettings(
 /** 드래그 정렬. 같은 컨테이너 안 이동과 그룹 간 이동을 함께 처리한다. */
 export async function reorderList(
   id: string,
-  groupId: string | null,
+  groupId: string,
   prevId: string | null,
   nextId: string | null,
 ): Promise<ActionResult> {
   return run(async () => {
     const userId = await requireUserId();
+    const target = requireGroupId(groupId);
     await assertCan(userId, "manage", { kind: "list", id });
-    if (groupId) await assertCan(userId, "manage", { kind: "group", id: groupId });
+    await assertCan(userId, "manage", { kind: "group", id: target });
 
     const order = await orderBetweenLists(prevId, nextId);
-    await prisma.list.update({ where: { id }, data: { groupId, order } });
+    await prisma.list.update({ where: { id }, data: { groupId: target, order } });
     refresh();
   });
 }

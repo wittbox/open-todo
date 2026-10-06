@@ -32,7 +32,8 @@ import { ShareDialog } from "@/components/share/ShareDialog";
 import type { ShareSubjectType } from "@/app/generated/prisma/enums";
 import type { SidebarData, SidebarGroup, SidebarList } from "@/lib/queries/sidebar";
 import type { SearchHit, SearchResult } from "@/lib/queries/tasks";
-import { createGroup, renameGroup, reorderGroup, ungroupGroup } from "@/lib/actions/group";
+import { createGroup, deleteGroup, renameGroup, reorderGroup } from "@/lib/actions/group";
+import { NewGroupPopover, NewListPopover, type CreateTarget } from "./CreatePopover";
 import {
   createList,
   deleteList,
@@ -48,6 +49,8 @@ import { useShell } from "@/components/shell/AppShell";
 import { activeKeyOf } from "@/components/shell/shell";
 
 const ROOT = "__root__";
+/** 막 만든 그룹·목록 줄을 잠깐 비추는 색 */
+const FLASH_ROW = "bg-[#e8f0fc] shadow-[inset_3px_0_0_#2564cf]";
 const COLLAPSE_KEY = "todo.collapsedGroups";
 
 /**
@@ -174,17 +177,70 @@ export function Sidebar({ data }: { data: SidebarData }) {
   const [accountMenu, setAccountMenu] = useState<MenuAnchor | null>(null);
   const logoutForm = useRef<HTMLFormElement>(null);
   const [renaming, setRenaming] = useState<{ kind: "list" | "group"; id: string } | null>(null);
-  const [creating, setCreating] = useState<{ groupId: string | null } | null>(null);
+  const [creating, setCreating] = useState<{ groupId: string } | null>(null);
+  // 아래 '새 목록' · '새 그룹' 풍선
+  const [createPop, setCreatePop] = useState<{ kind: "list" | "group"; anchor: DOMRect } | null>(null);
+  // '새 목록' 의 기본 그룹을 정하는 데 쓴다 — 사이드바에서 마지막으로 누른 그룹(그룹 줄이나 그 안의 목록).
+  const [lastGroupId, setLastGroupId] = useState<string | null>(null);
+  // 막 만든 그룹·목록 줄("G:id" / "L:id") — 그리로 스크롤하고 잠깐 비춘다.
+  const [flash, setFlash] = useState<string | null>(null);
   const [sharing, setSharing] = useState<{ type: ShareSubjectType; id: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function act(fn: () => Promise<ActionResult<unknown>>) {
+  function act<T>(fn: () => Promise<ActionResult<T>>, onOk?: (data: T) => void) {
     startTransition(async () => {
       const res = await runAction(fn);
       if (!res.ok && !handledAuthFailure(res)) setError(res.error);
+      if (res.ok) onOk?.(res.data);
       router.refresh();
     });
   }
+
+  /* ── 새 그룹 · 새 목록 ── */
+  const ownGroups = useMemo(
+    () => groupOrder.map((id) => groupsById.get(id)).filter((g): g is SidebarGroup => g != null && g.role === "ADMIN"),
+    [groupOrder, groupsById],
+  );
+
+  /** '새 목록' 의 기본 그룹: 지금 열어 둔 목록의 그룹 → 마지막으로 누른 그룹 → 내 그룹 맨 아래. */
+  function defaultGroupId(): string | null {
+    const mine = (id: string | null | undefined) => (id && ownGroups.some((g) => g.id === id) ? id : null);
+    const open = activeKey.startsWith("list:") ? listsById.get(activeKey.slice(5))?.groupId : null;
+    return mine(open) ?? mine(lastGroupId) ?? ownGroups.at(-1)?.id ?? null;
+  }
+
+  function openCreate(kind: "list" | "group", el: HTMLElement) {
+    setCreatePop((cur) => (cur?.kind === kind ? null : { kind, anchor: el.getBoundingClientRect() }));
+  }
+
+  function onCreateGroup(name: string) {
+    setCreatePop(null);
+    act(() => createGroup(name), ({ id }) => setFlash(`G:${id}`));
+  }
+
+  function onCreateList(name: string, target: CreateTarget) {
+    setCreatePop(null);
+    act(
+      () => createList(name, target),
+      ({ id, groupId }) => {
+        expandGroup(groupId);
+        setLastGroupId(groupId);
+        setFlash(`L:${id}`);
+        router.push(`/list/${id}`);
+      },
+    );
+  }
+
+  // 새 줄이 그려지면 그리로 스크롤하고 2초 뒤 강조를 거둔다. 사이드바를 아래로 내려 둔 채 만들면
+  // 새 그룹이 화면 밖(위)에 생겨 만든 줄도 모른다 — 그래서 데려간다.
+  useEffect(() => {
+    if (!flash) return;
+    const el = document.querySelector(`[data-row-key="${flash}"]`);
+    if (!el) return; // 서버 데이터가 아직 안 왔다. 다음 렌더에 다시 본다.
+    el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    const timer = setTimeout(() => setFlash(null), 2000);
+    return () => clearTimeout(timer);
+  }, [flash, data]);
 
   /* ── 드래그 ── */
   const [dragging, setDragging] = useState<string | null>(null);
@@ -218,6 +274,8 @@ export function Sidebar({ data }: { data: SidebarData }) {
         ? findContainer(overId.slice(2))
         : null;
     if (!from || !to || from === to) return;
+    // 목록은 늘 그룹 안 — 그룹 밖(맨 아래)으로는 끌어 놓을 수 없다.
+    if (to === ROOT) return;
 
     setContainers((prev) => {
       const next = { ...prev };
@@ -254,7 +312,8 @@ export function Sidebar({ data }: { data: SidebarData }) {
     if (!activeId.startsWith("L:")) return;
     const listId = activeId.slice(2);
     const container = findContainer(listId);
-    if (!container) return;
+    // 그룹 밖에 남은 목록(남의 그룹에 넣어 둔 내 목록 등)은 그 줄 안에서 순서를 바꾸지 않는다 — 그룹으로 끌어 넣을 수만 있다.
+    if (!container || container === ROOT) return;
 
     let items = containers[container];
     if (overId.startsWith("L:")) {
@@ -269,7 +328,7 @@ export function Sidebar({ data }: { data: SidebarData }) {
 
     const i = items.indexOf(listId);
     act(() =>
-      reorderList(listId, container === ROOT ? null : container, items[i - 1] ?? null, items[i + 1] ?? null),
+      reorderList(listId, container, items[i - 1] ?? null, items[i + 1] ?? null),
     );
   }
 
@@ -284,21 +343,10 @@ export function Sidebar({ data }: { data: SidebarData }) {
           label: g.name,
           onSelect: () => act(() => moveListToGroup(list.id, g.id)),
         }));
-      return [
-        ...(list.groupId
-          ? [
-              {
-                icon: "out" as IconName,
-                label: t("listMenu.outOfGroup"),
-                onSelect: () => act(() => moveListToGroup(list.id, null)),
-              },
-            ]
-          : []),
-        ...(targets.length ? [{ kind: "separator" as const }, ...targets] : []),
-        ...(targets.length === 0 && !list.groupId
-          ? [{ label: t("listMenu.noTargetGroup"), pending: t("pendingNone") } as MenuItem]
-          : []),
-      ];
+      // 그룹 밖으로 빼는 항목은 없다 — 목록은 늘 그룹 안.
+      return targets.length
+        ? targets
+        : [{ label: t("listMenu.noOtherGroup"), pending: t("pendingNone") } as MenuItem];
     }
     return [
       {
@@ -320,16 +368,6 @@ export function Sidebar({ data }: { data: SidebarData }) {
         pending: manage ? undefined : t("noPermission"),
         onSelect: () => setMenu((m) => (m && m.kind === "list" ? { ...m, view: "move" } : m)),
       },
-      ...(list.groupId
-        ? [
-            {
-              icon: "out" as IconName,
-              label: t("listMenu.removeFromGroup"),
-              pending: manage ? undefined : t("noPermission"),
-              onSelect: () => act(() => moveListToGroup(list.id, null)),
-            },
-          ]
-        : []),
       { kind: "separator" },
       { icon: "print", label: t("listMenu.print"), pending: t("pendingPhase7") },
       { icon: "mail", label: t("listMenu.mail"), pending: t("pendingPhase7") },
@@ -377,13 +415,17 @@ export function Sidebar({ data }: { data: SidebarData }) {
       },
       { kind: "separator" },
       {
-        icon: "ungroup",
-        label: t("groupMenu.ungroup"),
-        pending: manage ? undefined : t("noPermission"),
+        // 목록은 늘 그룹 안이라 '그룹 해제'(목록을 밖으로 꺼내기)는 없앴다. 빈 그룹만 지운다.
+        icon: "trash",
+        label: t("groupMenu.delete"),
+        danger: true,
+        pending: !manage
+          ? t("noPermission")
+          : group.lists.length > 0
+            ? t("groupMenu.hasLists", { count: group.lists.length })
+            : undefined,
         onSelect: () => {
-          if (window.confirm(t("groupMenu.confirmUngroup", { name: group.name }))) {
-            act(() => ungroupGroup(group.id));
-          }
+          if (window.confirm(t("groupMenu.confirmDelete", { name: group.name }))) act(() => deleteGroup(group.id));
         },
       },
     ];
@@ -537,6 +579,8 @@ export function Sidebar({ data }: { data: SidebarData }) {
                   <GroupRow
                     group={g}
                     open={open}
+                    flash={flash === `G:${gid}`}
+                    onPick={() => setLastGroupId(gid)}
                     renaming={renaming?.kind === "group" && renaming.id === gid}
                     onToggle={() => toggleCollapse(gid)}
                     onMenu={(anchor) => setMenu({ kind: "group", id: gid, anchor, view: "main" })}
@@ -550,7 +594,7 @@ export function Sidebar({ data }: { data: SidebarData }) {
                     <ListContainer id={gid} listIds={containers[gid] ?? []}>
                       {(containers[gid] ?? []).map((lid) => {
                         const l = listsById.get(lid);
-                        return l ? renderList(l, true) : null;
+                        return l ? renderList(l, true, gid) : null;
                       })}
                       {creating?.groupId === gid && (
                         <NewItemInput
@@ -559,7 +603,7 @@ export function Sidebar({ data }: { data: SidebarData }) {
                           onCancel={() => setCreating(null)}
                           onCommit={(name) => {
                             setCreating(null);
-                            act(() => createList(name, gid));
+                            act(() => createList(name, { groupId: gid }));
                           }}
                         />
                       )}
@@ -573,12 +617,16 @@ export function Sidebar({ data }: { data: SidebarData }) {
             })}
           </SortableContext>
 
-          <ListContainer id={ROOT} listIds={containers[ROOT] ?? []}>
-            {(containers[ROOT] ?? []).map((lid) => {
-              const l = listsById.get(lid);
-              return l ? renderList(l, false) : null;
-            })}
-          </ListContainer>
+          {/* 그룹 밖 줄. 목록은 늘 그룹 안이라 보통 비어 있다 — 남의 그룹에 넣어 둔 내 목록처럼 내 그룹 트리에
+              걸리지 않는 것만 여기 남는다. 비어 있으면 그리지 않는다(끌어 놓을 자리로도 쓰지 않는다). */}
+          {(containers[ROOT] ?? []).length > 0 && (
+            <ListContainer id={ROOT} listIds={containers[ROOT]}>
+              {containers[ROOT].map((lid) => {
+                const l = listsById.get(lid);
+                return l ? renderList(l, false) : null;
+              })}
+            </ListContainer>
+          )}
 
           {data.shared.length > 0 && (
             <>
@@ -633,16 +681,6 @@ export function Sidebar({ data }: { data: SidebarData }) {
           </DragOverlay>
         </DndContext>
 
-        {creating?.groupId === null && (
-          <NewItemInput
-            placeholder={t("listName")}
-            onCancel={() => setCreating(null)}
-            onCommit={(name) => {
-              setCreating(null);
-              act(() => createList(name, null));
-            }}
-          />
-        )}
       </nav>
 
       {error && (
@@ -656,21 +694,42 @@ export function Sidebar({ data }: { data: SidebarData }) {
 
       <div className="flex h-11 shrink-0 items-center border-t border-side-border">
         <button
-          onClick={() => setCreating({ groupId: null })}
-          className="flex h-full flex-1 items-center gap-3 px-4 text-sm hover:bg-side-hover"
+          data-create-anchor=""
+          aria-expanded={createPop?.kind === "list"}
+          onClick={(e) => openCreate("list", e.currentTarget)}
+          className={`flex h-full flex-1 items-center gap-3 px-4 text-sm hover:bg-side-hover ${
+            createPop?.kind === "list" ? "bg-side-active" : ""
+          }`}
         >
           <Icon name="plus" size={17} />
           {t("newList")}
         </button>
         {/* 아이콘만 두면 무슨 버튼인지 눌러 봐야 안다. 이름을 붙이고 세로선으로 갈라 둔다. */}
         <button
-          onClick={() => act(async () => createGroup(t("untitledGroup")))}
-          className="flex h-full items-center gap-2 border-l border-side-border px-3.5 text-sm text-ink-2 hover:bg-side-hover"
+          data-create-anchor=""
+          aria-expanded={createPop?.kind === "group"}
+          onClick={(e) => openCreate("group", e.currentTarget)}
+          className={`flex h-full items-center gap-2 border-l border-side-border px-3.5 text-sm text-ink-2 hover:bg-side-hover ${
+            createPop?.kind === "group" ? "bg-side-active text-ink" : ""
+          }`}
         >
           <Icon name="groupPlus" size={17} />
           {t("newGroup")}
         </button>
       </div>
+
+      {createPop?.kind === "group" && (
+        <NewGroupPopover anchor={createPop.anchor} onCreate={onCreateGroup} onClose={() => setCreatePop(null)} />
+      )}
+      {createPop?.kind === "list" && (
+        <NewListPopover
+          anchor={createPop.anchor}
+          groups={ownGroups.map((g) => ({ id: g.id, name: g.name }))}
+          defaultGroupId={defaultGroupId()}
+          onCreate={onCreateList}
+          onClose={() => setCreatePop(null)}
+        />
+      )}
 
       {menu && (
         <ContextMenu
@@ -700,12 +759,14 @@ export function Sidebar({ data }: { data: SidebarData }) {
     </aside>
   );
 
-  function renderList(l: SidebarList, inGroup: boolean) {
+  function renderList(l: SidebarList, inGroup: boolean, groupId?: string) {
     return (
       <ListRow
         key={l.id}
         list={l}
         inGroup={inGroup}
+        flash={flash === `L:${l.id}`}
+        onPick={groupId ? () => setLastGroupId(groupId) : undefined}
         active={activeKey === `list:${l.id}`}
         renaming={renaming?.kind === "list" && renaming.id === l.id}
         onMenu={(anchor) => setMenu({ kind: "list", id: l.id, anchor, view: "main" })}
@@ -759,11 +820,15 @@ function ListContainer({
 }
 
 function GroupRow({
-  group, open, renaming, onToggle, onMenu, onRename, onCancelRename,
+  group, open, flash, renaming, onToggle, onPick, onMenu, onRename, onCancelRename,
 }: {
   group: SidebarGroup;
   open: boolean;
+  /** 막 만든 줄 — 잠깐 비춘다 */
+  flash: boolean;
   renaming: boolean;
+  /** 이 그룹을 눌렀다('새 목록' 의 기본 그룹이 된다) */
+  onPick: () => void;
   onToggle: () => void;
   onMenu: (a: MenuAnchor) => void;
   onRename: (name: string) => void;
@@ -781,11 +846,15 @@ function GroupRow({
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
       {...attributes}
       {...listeners}
+      data-row-key={`G:${group.id}`}
+      onClickCapture={onPick}
       onContextMenu={(e) => {
         e.preventDefault();
         onMenu({ x: e.clientX, y: e.clientY });
       }}
-      className={`group relative flex h-9 items-center gap-3 px-4 text-sm hover:bg-side-hover ${TOUCH_ROW}`}
+      className={`group relative flex h-9 items-center gap-3 px-4 text-sm transition-colors duration-500 ${
+        flash ? FLASH_ROW : "hover:bg-side-hover"
+      } ${TOUCH_ROW}`}
     >
       <span className="grid w-[18px] place-items-center text-ink-2">
         <Icon name="group" size={17} />
@@ -815,12 +884,16 @@ function GroupRow({
 }
 
 function ListRow({
-  list, inGroup, active, renaming, onMenu, onRename, onCancelRename, onRequestRename, onRequestDelete,
+  list, inGroup, active, flash, renaming, onPick, onMenu, onRename, onCancelRename, onRequestRename, onRequestDelete,
 }: {
   list: SidebarList;
   /** 그룹 안의 목록인지. 왼쪽 여백 한 단이 소속을 나타내는 유일한 신호다. */
   inGroup: boolean;
   active: boolean;
+  /** 막 만든 줄 — 잠깐 비춘다 */
+  flash: boolean;
+  /** 이 목록을 눌렀다 — 든 그룹이 '새 목록' 의 기본 그룹이 된다 */
+  onPick?: () => void;
   renaming: boolean;
   onMenu: (a: MenuAnchor) => void;
   onRename: (name: string) => void;
@@ -841,6 +914,8 @@ function ListRow({
       {...attributes}
       {...listeners}
       tabIndex={0}
+      data-row-key={`L:${list.id}`}
+      onClickCapture={onPick}
       onKeyDown={(e) => {
         if (list.role !== "ADMIN") return;
         if (e.key === "F2") {
@@ -858,7 +933,7 @@ function ListRow({
       }}
       className={`group relative flex h-9 items-center gap-3 pr-4 text-sm outline-none focus:bg-side-hover ${
         inGroup ? "pl-[44px]" : "pl-4"
-      } ${active ? "bg-side-active" : "hover:bg-side-hover"} ${TOUCH_ROW}`}
+      } ${flash ? FLASH_ROW : active ? "bg-side-active" : "hover:bg-side-hover"} ${TOUCH_ROW}`}
     >
       {active && <span className="absolute left-0 top-[7px] bottom-[7px] w-[3px] rounded-sm bg-[#2564cf]" />}
       <span className="grid w-[18px] shrink-0 place-items-center text-ink-2">

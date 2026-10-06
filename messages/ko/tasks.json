@@ -137,7 +137,8 @@
     "group": "제목 없는 그룹",
     "step": "새 단계",
     "copy": "{name} (복사본)",
-    "inbox": "작업"
+    "inbox": "작업",
+    "otherGroup": "기타"
   },
   "errors": {
     "emptyTitle": "빈 제목으로는 작업을 만들 수 없습니다.",
@@ -149,6 +150,9 @@
     "notFoundOrForbidden": "찾을 수 없거나 접근 권한이 없습니다.",
     "uploadForbidden": "이 목록에는 파일을 올릴 수 없습니다.",
     "noFile": "파일이 없습니다.",
-    "tooManyFiles": "작업 하나에 {max}개까지 붙일 수 있습니다."
+    "tooManyFiles": "작업 하나에 {max}개까지 붙일 수 있습니다.",
+    "needsGroup": "목록은 그룹 안에 있어야 합니다.",
+    "groupNameRequired": "그룹 이름을 입력하세요.",
+    "groupNotEmpty": "그룹에 목록이 {count}개 있습니다. 다른 그룹으로 옮기거나 지운 뒤에 삭제하세요."
   }
 }

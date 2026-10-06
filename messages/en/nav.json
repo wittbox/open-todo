@@ -26,7 +26,19 @@
   "listName": "List name",
   "newList": "New list",
   "newGroup": "New group",
-  "untitledGroup": "Untitled group",
+  "create": {
+    "groupTitle": "New group",
+    "groupName": "Group name",
+    "groupHint": "It goes at the bottom of your groups",
+    "listTitle": "New list",
+    "listName": "List name",
+    "listGroup": "Group",
+    "noGroupsYet": "You have no groups yet, so one is made with it",
+    "newGroupOption": "＋ New group…",
+    "newGroupName": "New group name",
+    "cancel": "Cancel",
+    "submit": "Create"
+  },
   "noPermission": "No permission",
   "pendingPhase7": "Phase 7",
   "pendingNone": "None",
@@ -47,9 +59,7 @@
     "rename": "Rename list",
     "share": "Share list",
     "move": "Move list to…",
-    "removeFromGroup": "Remove from group",
-    "outOfGroup": "Take out of group",
-    "noTargetGroup": "No group to move to",
+    "noOtherGroup": "No other group to move to",
     "print": "Print list",
     "mail": "Send list by email",
     "duplicate": "Duplicate list",
@@ -59,8 +69,9 @@
   "groupMenu": {
     "rename": "Rename group",
     "share": "Share group",
-    "ungroup": "Ungroup",
-    "confirmUngroup": "This ungroups ''{name}''. The lists inside move to the top level."
+    "delete": "Delete group",
+    "confirmDelete": "Delete the group ''{name}''?",
+    "hasLists": "{count, plural, one {# list} other {# lists}} inside"
   },
   "error": {
     "staleTitle": "A new version is out",

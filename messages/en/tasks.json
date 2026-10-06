@@ -137,7 +137,8 @@
     "group": "Untitled group",
     "step": "New step",
     "copy": "{name} (copy)",
-    "inbox": "Tasks"
+    "inbox": "Tasks",
+    "otherGroup": "Other"
   },
   "errors": {
     "emptyTitle": "A task needs a title.",
@@ -149,6 +150,9 @@
     "notFoundOrForbidden": "Not found, or you don't have access to it.",
     "uploadForbidden": "You can't upload files to this list.",
     "noFile": "No file was sent.",
-    "tooManyFiles": "You can attach up to {max} files to one task."
+    "tooManyFiles": "You can attach up to {max} files to one task.",
+    "needsGroup": "A list has to be in a group.",
+    "groupNameRequired": "Enter a group name.",
+    "groupNotEmpty": "This group still has {count, plural, one {# list} other {# lists}}. Move or delete them first."
   }
 }
