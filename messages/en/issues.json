@@ -106,7 +106,17 @@
     "archivedHint": "Archived projects are read-only.",
     "commentFailed": "Couldn't post the comment.",
     "viewFile": "View {name}",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "backToList": "← Issues",
+    "opened": "<b>{name}</b> opened this issue · {when} · {count, plural, one {# comment} other {# comments}}",
+    "resolveAction": "Resolved",
+    "fields": "Issue details",
+    "status": "Status",
+    "expandFields": "Details & edit",
+    "collapseFields": "Collapse",
+    "labelCount": "{count, plural, one {# label} other {# labels}}",
+    "sourceMessage": "From a message",
+    "viewSource": "↪ View the message"
   },
   "comment": {
     "edit": "Edit",

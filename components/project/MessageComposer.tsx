@@ -33,6 +33,8 @@ export function MessageComposer({
   disabledHint,
   members = [],
   allowFiles = false,
+  actions,
+  bare = false,
   onSend,
 }: {
   placeholder: string;
@@ -41,6 +43,10 @@ export function MessageComposer({
   /** @ 자동완성 후보. 없으면 자동완성이 뜨지 않는다 */
   members?: MentionCandidate[];
   allowFiles?: boolean;
+  /** 보내기 버튼 앞에 둘 것 — 이슈 페이지의 상태 버튼(해결됨으로 · 다시 열기) */
+  actions?: React.ReactNode;
+  /** 바깥 여백 없이 — 부르는 쪽이 자리를 잡을 때(이슈 페이지 타임라인 끝) */
+  bare?: boolean;
   /** 성공하면 true — 입력칸을 비운다 */
   onSend: (body: string, files: File[]) => Promise<boolean>;
 }) {
@@ -147,7 +153,7 @@ export function MessageComposer({
 
   if (disabled) {
     return (
-      <div className="mx-6 mb-4 mt-2 rounded border border-[#e1dfdd] bg-[#f3f2f1] px-3 py-2.5 text-[13px] text-ink-2">
+      <div className={`${bare ? "" : "mx-6 mb-4 mt-2"} rounded border border-[#e1dfdd] bg-[#f3f2f1] px-3 py-2.5 text-[13px] text-ink-2`}>
         {disabledHint ?? t("composer.locked")}
       </div>
     );
@@ -167,7 +173,7 @@ export function MessageComposer({
         setDragOver(false);
         addFiles([...e.dataTransfer.files]);
       }}
-      className={`relative mx-6 mb-4 mt-2 rounded-md border bg-white focus-within:border-link focus-within:shadow-[0_0_0_1px_#2564cf] ${
+      className={`relative ${bare ? "" : "mx-6 mb-4 mt-2"} rounded-md border bg-white focus-within:border-link focus-within:shadow-[0_0_0_1px_#2564cf] ${
         dragOver ? "border-link border-dashed" : "border-[#8a8886]"
       }`}
     >
@@ -335,11 +341,12 @@ export function MessageComposer({
           </button>
         )}
         <span className="ml-1 min-w-0 text-[11.5px] text-ink-3 pointer-coarse:hidden">{allowFiles ? t("composer.hintWithFiles") : t("composer.hint")}</span>
+        {actions && <span className="ml-auto flex shrink-0 items-center gap-1.5">{actions}</span>}
         <button
           type="button"
           onClick={() => void submit()}
           disabled={!canSend}
-          className="ml-auto inline-flex h-[26px] shrink-0 items-center whitespace-nowrap gap-1.5 rounded bg-link px-3 text-[12.5px] text-white disabled:bg-[#c8c6c4] pointer-coarse:h-9 pointer-coarse:rounded-full pointer-coarse:px-4 pointer-coarse:text-[14px]"
+          className={`${actions ? "" : "ml-auto "}inline-flex h-[26px] shrink-0 items-center whitespace-nowrap gap-1.5 rounded bg-link px-3 text-[12.5px] text-white disabled:bg-[#c8c6c4] pointer-coarse:h-9 pointer-coarse:rounded-full pointer-coarse:px-4 pointer-coarse:text-[14px]`}
         >
           <Icon name="send" size={13} />
           {busy ? t("composer.sending") : t("composer.send")}

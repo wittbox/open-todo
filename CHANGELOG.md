@@ -42,6 +42,7 @@
 - Clicking an attached photo — on a task or in a project message — opens a viewer over the page instead
   of a new tab: fitted to the screen, arrows / arrow keys / swipe between the photos of the same task or
   message, click for actual size, with open-in-new-tab and download. Other files still download.
+- In narrow panes the send button no longer shrinks until its label wraps one letter per line.
 
 ### Issue tracking in projects
 - A project admin can turn on **issues** in project settings and pick a short key (`BUG` → `BUG-23`;
@@ -71,6 +72,15 @@
 - The issues tab **refreshes itself**: every 10 seconds it asks for a small change stamp and redraws only
   when something changed (paused while the browser tab is hidden). Filters, the board/list choice and a
   half-written comment survive; the pane's title follows someone else's edit unless you are editing it.
+- An issue opens as a **page** under the project header (not a side pane): a large title, the body in a card
+  with photos at full column width, then a timeline of comment cards with status/assignee/due changes as thin
+  lines between them, ending with the comment box. Next to Send: "Resolved" for open issues, "Reopen" for
+  closed ones. Fields (status, assignee, priority, labels, due, reporter, watching, source message) sit in a
+  right column; on phones they fold into a chip line under the title. "← Issues" returns to the list with
+  its filters kept.
+- The **sidebar search** finds issues too — title, body and comments in projects you belong to — in a
+  separate "Issues" group (five each, "N more" to expand; closed ones last and dimmed). Typing `BUG-23` puts
+  "Jump to" at the top.
 - **Migration** `20261008000000_issues` adds the issue tables and project columns; no existing data changes.
 
 ## 0.1.0 — 2026-09-21

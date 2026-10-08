@@ -31,7 +31,7 @@ vi.mock("@/lib/actions/issue", () => {
 });
 vi.mock("@/lib/actions/session-guard", () => ({ runAction: (fn: () => unknown) => fn(), handledAuthFailure: () => false }));
 
-const { IssuePane } = await import("@/components/issues/IssuePane");
+const { IssuePage } = await import("@/components/issues/IssuePage");
 
 beforeEach(() => calls.update.mockClear());
 afterEach(cleanup);
@@ -47,16 +47,16 @@ function issue(p: Partial<IssueDetail> = {}): IssueDetail {
     id: "i1", number: 22, ref: "BUG-22", title: "회차가 두 번 생김", body: "## 재현 순서\n1. 끌어 놓는다\n## 실제 결과\n두 개",
     status: "OPEN", priority: "HIGH", assigneeId: "dev", assignee: person("dev", "이준"), reporter: person("rep", "김하늘"),
     labelIds: [], dueDate: null, commentCount: 0, createdAt: "2026-10-07T00:00:00.000Z", updatedAt: "2026-10-07T00:00:00.000Z",
-    attachments: [], events: [], people: [], watcherCount: 0, isWatching: false, canDelete: true, ...p,
+    attachments: [], events: [], people: [], watcherCount: 0, isWatching: false, canDelete: true, sourceMessageId: null, ...p,
   };
 }
 
 const show = (i: IssueDetail, o: { meId?: string; isAdmin?: boolean; readOnly?: boolean } = {}) =>
   render(
-    <IssuePane issue={i} issueKey="BUG" labels={[]} members={MEMBERS} meId={o.meId ?? "rep"} isAdmin={o.isAdmin ?? false} readOnly={o.readOnly ?? false} />,
+    <IssuePage projectId="p1" stamp="0" issue={i} issueKey="BUG" labels={[]} members={MEMBERS} meId={o.meId ?? "rep"} isAdmin={o.isAdmin ?? false} readOnly={o.readOnly ?? false} />,
   );
 
-describe("이슈 상세 창", () => {
+describe("이슈 페이지", () => {
   it("해결됨이면 보고자에게 '확인하고 닫기' — 누르면 닫힘으로", () => {
     show(issue({ status: "RESOLVED" }));
     fireEvent.click(screen.getByRole("button", { name: "확인하고 닫기" }));
@@ -73,7 +73,7 @@ describe("이슈 상세 창", () => {
 
   it("자동 새로고침으로 남이 바꾼 제목은 따라가고, 내가 고치던 제목은 두고", () => {
     const pane = (i: IssueDetail) => (
-      <IssuePane issue={i} issueKey="BUG" labels={[]} members={MEMBERS} meId="rep" isAdmin={false} readOnly={false} />
+      <IssuePage projectId="p1" stamp="0" issue={i} issueKey="BUG" labels={[]} members={MEMBERS} meId="rep" isAdmin={false} readOnly={false} />
     );
     const { rerender } = render(pane(issue()));
     const input = () => screen.getByRole("textbox", { name: "이슈 제목" }) as HTMLTextAreaElement;
@@ -115,8 +115,65 @@ describe("이슈 상세 창", () => {
         ],
       }),
     );
-    expect(screen.getByText(/이슈를 열었습니다/)).toBeTruthy();
+    // 만듦은 제목 아래 한 줄로("…님이 … 열었다") — 타임라인에는 바뀐 기록만
+    expect(screen.getByText(/열었다/)).toBeTruthy();
+    expect(screen.queryByText(/이슈를 열었습니다/)).toBeNull();
     expect(screen.getByText(/이준님에게 맡겼습니다/)).toBeTruthy();
+    expect(document.querySelectorAll("[data-event]")).toHaveLength(1);
+  });
+
+  const comment = (id: string, body: string, at: string) => ({
+    id, kind: "COMMENT" as const, actor: person("dev", "이준"), body, fromValue: null, toValue: null, createdAt: at,
+    editedAt: null, deleted: false, isMine: false, attachments: [],
+  });
+
+  it("타임라인: 댓글 카드 사이에 바뀐 기록이 시간순으로, 그 끝에 댓글 입력", () => {
+    show(
+      issue({
+        events: [
+          comment("c1", "재현됩니다", "2026-10-07T00:02:00.000Z"),
+          { id: "e3", kind: "STATUS", actor: person("dev", "이준"), body: "", fromValue: "OPEN", toValue: "IN_PROGRESS", createdAt: "2026-10-07T00:03:00.000Z", editedAt: null, deleted: false, isMine: false, attachments: [] },
+          comment("c2", "고쳤어요", "2026-10-07T00:04:00.000Z"),
+        ],
+      }),
+    );
+    const items = [...screen.getByRole("list", { name: "활동" }).children].map((li) =>
+      li.hasAttribute("data-comment") ? `댓글:${li.textContent?.includes("재현") ? 1 : 2}` : li.hasAttribute("data-event") ? "기록" : "입력",
+    );
+    expect(items).toEqual(["댓글:1", "기록", "댓글:2", "입력"]);
+    expect(screen.getByRole("textbox", { name: /댓글 쓰기/ })).toBeTruthy();
+  });
+
+  it("입력창 옆 상태 버튼 — 열림·진행 중이면 '해결됨으로', 닫힘이면 '다시 열기'", () => {
+    show(issue({ status: "IN_PROGRESS" }));
+    fireEvent.click(screen.getByRole("button", { name: /해결됨으로/ }));
+    expect(calls.update).toHaveBeenCalledWith("i1", { status: "RESOLVED" });
+    cleanup();
+    show(issue({ status: "CLOSED" }));
+    fireEvent.click(screen.getByRole("button", { name: "다시 열기" }));
+    expect(calls.update).toHaveBeenCalledWith("i1", { status: "OPEN" });
+  });
+
+  it("사진은 본문 폭으로 크게(누르면 보기 창), 다른 파일은 칩", () => {
+    show(
+      issue({
+        attachments: [
+          { id: "f1", name: "빈화면.png", size: 2048, mimeType: "image/png", createdAt: "2026-10-07T00:00:00.000Z", uploaderName: "김하늘" },
+          { id: "f2", name: "log.txt", size: 100, mimeType: "text/plain", createdAt: "2026-10-07T00:00:00.000Z", uploaderName: "김하늘" },
+        ] as never,
+      }),
+    );
+    expect(document.querySelector("figure img")?.getAttribute("src")).toBe("/api/files/f1");
+    expect(screen.getByText(/빈화면\.png ·/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /log\.txt/ }).getAttribute("href")).toBe("/api/files/f2");
+    fireEvent.click(screen.getByRole("button", { name: "빈화면.png 보기" }));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("'← 이슈 목록' 과 메시지에서 만든 이슈의 원래 메시지 링크", () => {
+    show(issue({ sourceMessageId: "m1" }));
+    expect(screen.getByRole("link", { name: "← 이슈 목록" }).getAttribute("href")).toBe("/projects/p1?tab=issues");
+    expect(screen.getByRole("link", { name: /원래 메시지/ }).getAttribute("href")).toBe("/projects/p1?msg=m1");
   });
 });
 

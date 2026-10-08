@@ -87,7 +87,7 @@ d("검색 /api/search", () => {
   it("빈 검색어는 빈 결과", async () => {
     currentUser = f.owner.id;
     const body = await (await search(get("/api/search?q="))).json();
-    expect(body).toEqual({ jump: null, hits: [] });
+    expect(body).toEqual({ jump: null, hits: [], issueJump: null, issues: [] });
   });
 });
 

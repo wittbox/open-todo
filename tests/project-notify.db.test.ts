@@ -96,11 +96,11 @@ d("멘션 알림 (DB)", () => {
   });
 
   it("21명 넘게 부르면 거부", async () => {
-    const many = await Promise.all(
-      Array.from({ length: 21 }, (_, i) =>
-        prisma.user.create({ data: { email: `mm${i}-${f.p}@x.test`, name: `사람${i}` } }),
-      ),
-    );
+    // 한 번에 넣는다 — 21개를 동시에 만들면 로컬 개발 DB(prisma dev)가 연결을 끊는다.
+    const many = await prisma.user.createManyAndReturn({
+      data: Array.from({ length: 21 }, (_, i) => ({ email: `mm${i}-${f.p}@x.test`, name: `사람${i}` })),
+      select: { id: true },
+    });
     await prisma.projectMember.createMany({ data: many.map((u) => ({ projectId: f.priv.id, userId: u.id, role: "MEMBER" })) });
     as(f.owner.id);
     const r = await msg.postMessage(f.priv.id, many.map((u) => `<@${u.id}>`).join(" "));

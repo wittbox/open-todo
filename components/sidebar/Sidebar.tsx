@@ -31,7 +31,9 @@ import { ContextMenu, RowMenuButton, type MenuAnchor, type MenuItem } from "@/co
 import { ShareDialog } from "@/components/share/ShareDialog";
 import type { ShareSubjectType } from "@/app/generated/prisma/enums";
 import type { SidebarData, SidebarGroup, SidebarList } from "@/lib/queries/sidebar";
-import type { SearchHit, SearchResult } from "@/lib/queries/tasks";
+import type { SearchHit } from "@/lib/queries/tasks";
+import type { IssueSearchHit, SidebarSearchResult } from "@/lib/queries/issues";
+import { StatusPill } from "@/components/issues/IssueBits";
 import { createGroup, deleteGroup, renameGroup, reorderGroup } from "@/lib/actions/group";
 import { NewGroupPopover, NewListPopover, type CreateTarget } from "./CreatePopover";
 import {
@@ -955,42 +957,116 @@ function ListRow({
   );
 }
 
-/** 사이드바 검색. 번호를 넣으면 결과 맨 위에 "바로 이동"이 뜬다. */
-function SearchBox() {
+/** 묶음마다 처음 보여 줄 개수 — 나머지는 "N개 더 보기" */
+const SEARCH_GROUP_SHOWN = 5;
+
+type SearchRow =
+  | { kind: "task"; hit: SearchHit; jump: boolean }
+  | { kind: "issue"; hit: IssueSearchHit; jump: boolean };
+
+/**
+ * 사이드바 검색. 작업과 이슈를 묶음으로 나눠 보인다(묶음마다 5개, 더 있으면 펼치기).
+ * 작업 번호("1042", "#1042")나 이슈 번호("BUG-23")를 넣으면 결과 맨 위에 "바로 이동"이 뜬다. Enter 는 맨 위 결과로.
+ */
+export function SearchBox() {
   const t = useTranslations("nav.search");
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [result, setResult] = useState<SearchResult | null>(null);
+  const [result, setResult] = useState<SidebarSearchResult | null>(null);
   const [open, setOpen] = useState(false);
+  // 펼친 묶음. 검색어가 바뀌면 다시 접는다.
+  const [expanded, setExpanded] = useState<{ q: string; groups: Set<"task" | "issue"> }>({ q: "", groups: new Set() });
+  const isExpanded = (g: "task" | "issue") => expanded.q === q && expanded.groups.has(g);
 
   useEffect(() => {
     const term = q.trim();
     if (!term) return; // 지우는 순간은 입력 핸들러가 결과를 비운다
     const ac = new AbortController();
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       try {
         const res = await fetch(`/api/search?q=${encodeURIComponent(term)}`, { signal: ac.signal });
-        if (res.ok) setResult((await res.json()) as SearchResult);
+        if (res.ok) setResult((await res.json()) as SidebarSearchResult);
       } catch {
         /* 입력이 바뀌어 취소된 요청은 무시한다 */
       }
     }, 250);
     return () => {
-      clearTimeout(t);
+      clearTimeout(timer);
       ac.abort();
     };
   }, [q]);
 
-  function go(hit: SearchHit) {
+  function go(row: SearchRow) {
     setOpen(false);
     setQ("");
-    router.push(`/list/${hit.listId}?task=${hit.id}`);
+    router.push(row.kind === "task" ? `/list/${row.hit.listId}?task=${row.hit.id}` : row.hit.href);
   }
 
-  const rows: { hit: SearchHit; jump: boolean }[] = [
-    ...(result?.jump ? [{ hit: result.jump, jump: true }] : []),
-    ...(result?.hits ?? []).map((hit) => ({ hit, jump: false })),
-  ];
+  const jump: SearchRow | null = result?.jump
+    ? { kind: "task", hit: result.jump, jump: true }
+    : result?.issueJump
+      ? { kind: "issue", hit: result.issueJump, jump: true }
+      : null;
+  const tasks: SearchRow[] = (result?.hits ?? []).map((hit) => ({ kind: "task", hit, jump: false }));
+  const issues: SearchRow[] = (result?.issues ?? []).map((hit) => ({ kind: "issue", hit, jump: false }));
+  const shownTasks = isExpanded("task") ? tasks : tasks.slice(0, SEARCH_GROUP_SHOWN);
+  const shownIssues = isExpanded("issue") ? issues : issues.slice(0, SEARCH_GROUP_SHOWN);
+  const first = jump ?? shownTasks[0] ?? shownIssues[0] ?? null;
+  // 서버가 묶음마다 20개까지 준다 — 꽉 찼으면 더 있을 수 있다.
+  const countLabel = (n: number) => (n >= 20 ? "20+" : String(n));
+
+  const label = (text: string) => <p className="px-3 pb-1 pt-1.5 text-[11px] text-ink-3">{text}</p>;
+  const more = (g: "task" | "issue", total: number, shown: number) =>
+    total > shown && (
+      <button
+        type="button"
+        onClick={() => setExpanded({ q, groups: new Set([...(expanded.q === q ? expanded.groups : []), g]) })}
+        className="block w-full py-1.5 pl-[37px] pr-3 text-left text-[12px] text-link hover:underline"
+      >
+        {t(g === "task" ? "moreTasks" : "moreIssues", { count: total - shown })}
+      </button>
+    );
+
+  function rowView(row: SearchRow) {
+    const base = `flex w-full items-start gap-2.5 px-3 py-2 text-left text-[13px] ${row.jump ? "bg-[#eff6fc]" : "hover:bg-side-hover"}`;
+    if (row.kind === "task") {
+      const hit = row.hit;
+      return (
+        <button key={`t-${hit.id}`} onClick={() => go(row)} className={base}>
+          <span className={`mt-0.5 shrink-0 ${row.jump ? "text-link" : "text-ink-2"}`}>
+            <Icon name={row.jump ? "jump" : hit.isCompleted ? "check" : "circle"} size={15} />
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate">
+              {row.jump && <span className="font-mono font-semibold text-link">#{hit.seq} </span>}
+              {row.jump ? t("goTo", { title: hit.title }) : hit.title}
+            </span>
+            <span className="block truncate text-[11px] text-ink-2">{hit.listName}</span>
+          </span>
+        </button>
+      );
+    }
+    const hit = row.hit;
+    const closed = hit.status === "CLOSED";
+    return (
+      <button key={`i-${hit.id}`} data-search-issue={hit.ref} onClick={() => go(row)} className={base}>
+        <span className={`mt-0.5 shrink-0 ${row.jump ? "text-link" : "text-[#5c2e91]"}`}>
+          <Icon name={row.jump ? "jump" : "flag"} size={15} />
+        </span>
+        <span className="min-w-0">
+          <span className={`block truncate ${closed && !row.jump ? "text-ink-3" : ""}`}>
+            <span className="mr-1 font-mono text-[12px] font-semibold text-[#5c2e91]">{hit.ref}</span>
+            {row.jump ? t("goTo", { title: hit.title }) : hit.title}
+          </span>
+          <span className="flex min-w-0 items-center gap-1 text-[11px] text-ink-2">
+            <span className="truncate">{hit.projectName}</span>
+            <StatusPill status={hit.status} className="!px-1.5 !text-[10.5px]" />
+            {hit.inComment && <span className="shrink-0 text-ink-3">{t("inComment")}</span>}
+          </span>
+        </span>
+      </button>
+    );
+  }
 
   return (
     <div className="relative mx-4 mb-2.5">
@@ -1006,7 +1082,7 @@ function SearchBox() {
           onFocus={() => setOpen(true)}
           onKeyDown={(e) => {
             if (e.key === "Escape") setOpen(false);
-            if (e.key === "Enter" && rows[0]) go(rows[0].hit);
+            if (e.key === "Enter" && first) go(first);
           }}
           className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-ink-3"
         />
@@ -1020,33 +1096,28 @@ function SearchBox() {
       </div>
 
       {open && q.trim() && (
-        <div className="thin-scroll absolute left-0 right-0 top-9 z-30 max-h-[420px] overflow-y-auto rounded border border-[#e1dfdd] bg-white py-1 shadow-[0_6.4px_14.4px_rgba(0,0,0,.132)]">
-          {rows.length === 0 && <p className="px-3 py-2.5 text-[13px] text-ink-3">{t("empty")}</p>}
-          {rows.map(({ hit, jump }, i) => (
-            <div key={hit.id}>
-              {i === 0 && jump && <p className="px-3 pb-1 pt-1.5 text-[11px] text-ink-3">{t("jump")}</p>}
-              {i === (result?.jump ? 1 : 0) && rows.length > (result?.jump ? 1 : 0) && (
-                <p className="px-3 pb-1 pt-1.5 text-[11px] text-ink-3">{t("results")}</p>
-              )}
-              <button
-                onClick={() => go(hit)}
-                className={`flex w-full items-start gap-2.5 px-3 py-2 text-left text-[13px] ${
-                  jump ? "bg-[#eff6fc]" : "hover:bg-side-hover"
-                }`}
-              >
-                <span className={`mt-0.5 shrink-0 ${jump ? "text-link" : "text-ink-2"}`}>
-                  <Icon name={jump ? "jump" : hit.isCompleted ? "check" : "circle"} size={15} />
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate">
-                    {jump && <span className="font-mono font-semibold text-link">#{hit.seq} </span>}
-                    {jump ? t("goTo", { title: hit.title }) : hit.title}
-                  </span>
-                  <span className="block truncate text-[11px] text-ink-2">{hit.listName}</span>
-                </span>
-              </button>
+        <div className="thin-scroll absolute left-0 right-0 top-9 z-30 max-h-[480px] overflow-y-auto rounded border border-[#e1dfdd] bg-white py-1 shadow-[0_6.4px_14.4px_rgba(0,0,0,.132)]">
+          {!jump && tasks.length === 0 && issues.length === 0 && <p className="px-3 py-2.5 text-[13px] text-ink-3">{t("empty")}</p>}
+          {jump && (
+            <>
+              {label(t("jump"))}
+              {rowView(jump)}
+            </>
+          )}
+          {tasks.length > 0 && (
+            <div data-search-group="task">
+              {label(t("groupTasks", { count: countLabel(tasks.length) }))}
+              {shownTasks.map(rowView)}
+              {more("task", tasks.length, shownTasks.length)}
             </div>
-          ))}
+          )}
+          {issues.length > 0 && (
+            <div data-search-group="issue">
+              {label(t("groupIssues", { count: countLabel(issues.length) }))}
+              {shownIssues.map(rowView)}
+              {more("issue", issues.length, shownIssues.length)}
+            </div>
+          )}
         </div>
       )}
     </div>

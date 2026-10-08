@@ -421,4 +421,56 @@ d("이슈 (DB)", () => {
       expect((await call()).status).toBe(401);
     });
   });
+  describe("사이드바 검색", () => {
+    it("제목·본문·댓글(지운 댓글 빼고)을 찾고, 진행 중 → 열림 → 해결됨 → 닫힘 순. 멤버가 아니면 없다", async () => {
+      const { searchIssues } = await import("@/lib/queries/issues");
+      const W = `찾기${rand()}`;
+      as(f.member.id);
+      const inTitle = ok(await A.createIssueAction({ projectId: f.priv.id, title: `${W} 제목에`, body: "" }));
+      const inBody = ok(await A.createIssueAction({ projectId: f.priv.id, title: "본문에 있음", body: `여기 ${W.toLowerCase()} 있다` }));
+      const inComment = ok(await A.createIssueAction({ projectId: f.priv.id, title: "댓글에 있음", body: "" }));
+      ok(await A.addCommentAction(inComment.id, `${W} 도 봐 주세요`));
+      const deleted = ok(await A.createIssueAction({ projectId: f.priv.id, title: "지운 댓글에만", body: "" }));
+      const c = ok(await A.addCommentAction(deleted.id, `${W} 지울 글`));
+      ok(await A.deleteCommentAction(c.id));
+      ok(await A.updateIssueAction(inBody.id, { status: "IN_PROGRESS" }));
+      ok(await A.updateIssueAction(inTitle.id, { status: "CLOSED" }));
+
+      const r = await searchIssues(f.member.id, W);
+      expect(r.hits.map((h) => h.id)).toEqual([inBody.id, inComment.id, inTitle.id]);
+      expect(r.hits.find((h) => h.id === inComment.id)).toMatchObject({ inComment: true, href: `/projects/${f.priv.id}?tab=issues&issue=${inComment.number}` });
+      expect(r.hits.find((h) => h.id === inBody.id)!.inComment).toBe(false);
+      expect((await searchIssues(f.stranger.id, W)).hits).toEqual([]);
+    });
+
+    it("BUG-23(소문자도)은 바로 이동 — 멤버만, 이슈를 끈 프로젝트는 빼고. 숫자만은 이슈로 보지 않는다", async () => {
+      const { searchIssues } = await import("@/lib/queries/issues");
+      as(f.member.id);
+      const i = ok(await A.createIssueAction({ projectId: f.priv.id, title: "번호로 찾기", body: "" }));
+      const ref = `${KEY}-${i.number}`;
+      expect((await searchIssues(f.member.id, ref.toLowerCase())).jump).toMatchObject({ id: i.id, ref });
+      expect((await searchIssues(f.stranger.id, ref)).jump).toBeNull();
+      expect((await searchIssues(f.member.id, String(i.number))).jump).toBeNull();
+      as(f.owner.id);
+      ok(await A.updateIssueSettingsAction(f.priv.id, { enabled: false }));
+      expect((await searchIssues(f.member.id, ref)).jump).toBeNull();
+      expect((await searchIssues(f.member.id, "번호로 찾기")).hits).toEqual([]);
+      ok(await A.updateIssueSettingsAction(f.priv.id, { enabled: true }));
+    });
+
+    it("/api/search 가 작업과 이슈를 함께 준다", async () => {
+      const { GET } = await import("@/app/api/search/route");
+      const { NextRequest } = await import("next/server");
+      as(f.member.id);
+      const i = ok(await A.createIssueAction({ projectId: f.priv.id, title: `경로확인${rand()}`, body: "" }));
+      const res = await GET(new NextRequest(`http://x.test/api/search?q=${encodeURIComponent(`${KEY}-${i.number}`)}`));
+      const body = (await res.json()) as { jump: unknown; hits: unknown[]; issueJump: { id: string } | null; issues: unknown[] };
+      expect(body.jump).toBeNull();
+      expect(body.issueJump?.id).toBe(i.id);
+      currentUser = "";
+      const out = await GET(new NextRequest("http://x.test/api/search?q=x"));
+      expect(out.status).toBe(401);
+      expect(await out.json()).toEqual({ jump: null, hits: [], issueJump: null, issues: [] });
+    });
+  });
 });

@@ -2,9 +2,10 @@ import { prisma } from "@/lib/db";
 import { getProjectRole, ROLE_RANK } from "@/lib/permissions";
 import { dateOnlyToString } from "@/lib/date";
 import { tokenIds } from "@/lib/mentions";
-import { issueRef } from "@/lib/issues/format";
+import { issueRef, parseIssueRef } from "@/lib/issues/format";
 import type { IssueEventKind, IssuePriority, IssueStatus } from "@/app/generated/prisma/enums";
 import type { AttachmentItem } from "@/lib/queries/list";
+import type { SearchResult } from "@/lib/queries/tasks";
 
 /**
  * 이슈 조회. 멤버가 아니면 null — 없는 프로젝트·이슈와 구분하지 않는다.
@@ -56,6 +57,8 @@ export type IssueDetail = IssueItem & {
   isWatching: boolean;
   /** 올린 사람이나 관리자 */
   canDelete: boolean;
+  /** 메시지에서 만든 이슈면 그 메시지(지워졌으면 null) — 이슈 페이지의 "메시지에서" 링크 */
+  sourceMessageId: string | null;
 };
 
 export type IssueSettings = {
@@ -139,6 +142,7 @@ export async function getIssueDetail(userId: string, projectId: string, number: 
       },
       _count: { select: { watchers: true } },
       watchers: { where: { userId }, select: { userId: true } },
+      sourceMessage: { select: { id: true, deletedAt: true } },
     },
   });
   if (!r) return null;
@@ -173,6 +177,7 @@ export async function getIssueDetail(userId: string, projectId: string, number: 
     watcherCount: r._count.watchers,
     isWatching: r.watchers.length > 0,
     canDelete: r.reporterId === userId || ROLE_RANK[role] >= ROLE_RANK.ADMIN,
+    sourceMessageId: r.sourceMessage && !r.sourceMessage.deletedAt ? r.sourceMessage.id : null,
   };
 }
 
@@ -182,6 +187,77 @@ export async function resolveIssueRef(userId: string, key: string, number: numbe
   if (!p || !(await getProjectRole(userId, p.id))) return null;
   const exists = await prisma.issue.findUnique({ where: { projectId_number: { projectId: p.id, number } }, select: { id: true } });
   return exists ? { projectId: p.id, number } : null;
+}
+
+/* ── 사이드바 검색 ── */
+
+export type IssueSearchHit = {
+  id: string;
+  ref: string;
+  title: string;
+  status: IssueStatus;
+  projectName: string;
+  href: string;
+  /** 제목·본문이 아니라 댓글에서만 찾았다 — 왜 걸렸는지 보이게 */
+  inComment: boolean;
+};
+
+/** 사이드바 검색이 받는 모양 — 작업(접근 권한이 있는 목록)과 이슈(멤버인 프로젝트)를 함께(/api/search). */
+export type SidebarSearchResult = SearchResult & { issueJump: IssueSearchHit | null; issues: IssueSearchHit[] };
+
+const SEARCH_STATUS_RANK: Record<IssueStatus, number> = { IN_PROGRESS: 0, OPEN: 1, RESOLVED: 2, CLOSED: 3 };
+
+/**
+ * 사이드바 검색의 이슈 쪽. 내가 멤버이고 이슈를 켠 프로젝트에서 제목·본문·댓글(지운 것 빼고)을 찾는다.
+ * "BUG-23"(소문자도)이면 그 이슈를 `jump` 로 — 결과 맨 위 "바로 이동". 번호만("23")은 작업 번호라 여기서는 보지 않는다.
+ * 정렬은 진행 중 → 열림 → 해결됨 → 닫힘, 같은 상태끼리는 최근 갱신 순. 닫힌 것은 화면이 흐리게 그린다.
+ */
+export async function searchIssues(userId: string, raw: string): Promise<{ jump: IssueSearchHit | null; hits: IssueSearchHit[] }> {
+  const q = raw.trim();
+  if (!q) return { jump: null, hits: [] };
+  const inProjects = { issuesEnabled: true, members: { some: { userId } } };
+  const ref = parseIssueRef(q);
+  const select = {
+    id: true, number: true, title: true, body: true, status: true, updatedAt: true,
+    project: { select: { id: true, name: true, issueKey: true } },
+  } as const;
+
+  const [jumpRow, rows] = await Promise.all([
+    ref
+      ? prisma.issue.findFirst({ where: { number: ref.number, project: { ...inProjects, issueKey: ref.key } }, select })
+      : Promise.resolve(null),
+    prisma.issue.findMany({
+      where: {
+        project: inProjects,
+        OR: [
+          { title: { contains: q, mode: "insensitive" } },
+          { body: { contains: q, mode: "insensitive" } },
+          { events: { some: { kind: "COMMENT", deletedAt: null, body: { contains: q, mode: "insensitive" } } } },
+        ],
+      },
+      select,
+      orderBy: { updatedAt: "desc" },
+      // 상태로 다시 줄 세운 뒤 자른다 — 오래된 열린 이슈가 최근 닫힌 것에 밀려 빠지지 않게 넉넉히.
+      take: 60,
+    }),
+  ]);
+
+  const needle = q.toLowerCase();
+  const toHit = (r: NonNullable<typeof jumpRow>): IssueSearchHit => ({
+    id: r.id,
+    ref: issueRef(r.project.issueKey, r.number),
+    title: r.title,
+    status: r.status,
+    projectName: r.project.name,
+    href: `/projects/${r.project.id}?tab=issues&issue=${r.number}`,
+    inComment: !r.title.toLowerCase().includes(needle) && !r.body.toLowerCase().includes(needle),
+  });
+  const hits = rows
+    .filter((r) => r.id !== jumpRow?.id)
+    .sort((a, b) => SEARCH_STATUS_RANK[a.status] - SEARCH_STATUS_RANK[b.status])
+    .slice(0, 20)
+    .map(toHit);
+  return { jump: jumpRow ? { ...toHit(jumpRow), inComment: false } : null, hits };
 }
 
 /* ── 나에게 맡겨진 이슈(나에게 할당됨·달력) ── */

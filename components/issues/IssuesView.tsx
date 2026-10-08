@@ -13,12 +13,12 @@ import { handledAuthFailure, runAction } from "@/lib/actions/session-guard";
 import { Face, LabelChip, PriorityMark, StatusPill } from "@/components/issues/IssueBits";
 import { countByState, filterIssues, PRIORITIES, type IssueFilter } from "@/lib/issues/format";
 import { relativeShort, type Translate } from "@/lib/projects/format";
-import { openPanel } from "@/components/shell/shell";
 import type { IssueItem } from "@/lib/queries/issues";
 import type { ProjectView } from "@/lib/queries/project";
 import type { IssuePriority, IssueStatus } from "@/app/generated/prisma/enums";
 
 const VIEW_KEY = "todo.issueView";
+const FILTER_KEY = "todo.issueFilter";
 
 type Member = Extract<ProjectView, { kind: "member" }>;
 
@@ -31,13 +31,11 @@ type Member = Extract<ProjectView, { kind: "member" }>;
 export function IssuesView({
   project,
   issues,
-  selected,
   meId,
   stamp,
 }: {
   project: Member;
   issues: IssueItem[];
-  selected: number | null;
   meId: string;
   /** 서버가 이 화면을 그릴 때의 '바뀜 표시' — 자동 새로고침이 비교한다 */
   stamp: string;
@@ -50,6 +48,20 @@ export function IssuesView({
   const readOnly = project.archivedAt != null;
   useIssueRefresh(project.id, stamp);
   const [filter, setFilter] = useState<IssueFilter>({ state: "open" });
+  // 거르기는 이 탭이 열려 있는 동안 기억한다 — 이슈 페이지에 들어갔다 '← 이슈 목록' 으로 돌아와도 그대로.
+  const filterKey = `${FILTER_KEY}.${project.id}`;
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(filterKey);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 브라우저에만 있는 값을 처음 한 번 읽는다
+      if (saved) setFilter(JSON.parse(saved) as IssueFilter);
+    } catch {}
+  }, [filterKey]);
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(filterKey, JSON.stringify(filter));
+    } catch {}
+  }, [filterKey, filter]);
   const [creating, setCreating] = useState(false);
   // 목록 ↔ 보드. 사람마다 손에 익은 쪽이 달라 브라우저에 기억해 둔다(처음 그릴 때는 목록 — 서버와 같게).
   const [view, setView] = useState<"list" | "board">("list");
@@ -113,8 +125,9 @@ export function IssuesView({
     [shown, filter, meId, key, view],
   );
 
+  // 이슈는 페이지로 들어간다(오른쪽 창이 아니라) — 돌아오기는 브라우저 뒤로 또는 '← 이슈 목록'.
   function open(number: number) {
-    openPanel(router, `${pathname}?tab=issues&issue=${number}`);
+    router.push(`${pathname}?tab=issues&issue=${number}`);
   }
 
   const select = "h-7 rounded border border-[#e1dfdd] bg-white px-1.5 text-[12.5px] text-ink-2";
@@ -254,7 +267,7 @@ export function IssuesView({
       {error && <p className="mx-4 mt-2 rounded bg-[#fdf3f4] px-3 py-1.5 text-xs text-danger md:mx-6">{error}</p>}
 
       {view === "board" ? (
-        <IssueBoard issues={rows} labels={labels} selected={selected} readOnly={readOnly} onOpen={open} onMove={move} />
+        <IssueBoard issues={rows} labels={labels} selected={null} readOnly={readOnly} onOpen={open} onMove={move} />
       ) : (
         <div className="thin-scroll min-h-0 flex-1 overflow-y-auto" role="list" aria-label={t("list.label")}>
           {rows.map((r) => (
@@ -263,11 +276,8 @@ export function IssuesView({
               type="button"
               role="listitem"
               data-issue={r.number}
-              aria-current={selected === r.number ? "true" : undefined}
               onClick={() => open(r.number)}
-              className={`grid w-full grid-cols-[70px_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 border-b border-[#edebe9] px-4 py-2.5 text-left md:grid-cols-[84px_minmax(0,1fr)_72px_120px_44px_88px] md:px-6 ${
-                selected === r.number ? "bg-[#eff6fc] shadow-[inset_3px_0_0_#2564cf]" : "hover:bg-side-hover"
-              }`}
+              className={`grid w-full grid-cols-[70px_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 border-b border-[#edebe9] px-4 py-2.5 text-left md:grid-cols-[84px_minmax(0,1fr)_72px_120px_44px_88px] md:px-6 hover:bg-side-hover`}
             >
               <span className="font-mono text-[12.5px] text-ink-2">{r.ref}</span>
               <span className="min-w-0">

@@ -48,7 +48,12 @@
     "empty": "No results.",
     "jump": "Jump to",
     "results": "Results",
-    "goTo": "Go to {title}"
+    "goTo": "Go to {title}",
+    "groupTasks": "Tasks {count}",
+    "groupIssues": "Issues {count}",
+    "moreTasks": "{count} more tasks",
+    "moreIssues": "{count} more issues",
+    "inComment": "· in a comment"
   },
   "jump": {
     "title": "Go to task number",

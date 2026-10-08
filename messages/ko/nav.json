@@ -48,7 +48,12 @@
     "empty": "결과가 없습니다.",
     "jump": "바로 이동",
     "results": "검색 결과",
-    "goTo": "{title}(으)로 이동"
+    "goTo": "{title}(으)로 이동",
+    "groupTasks": "작업 {count}",
+    "groupIssues": "이슈 {count}",
+    "moreTasks": "작업 {count}개 더 보기",
+    "moreIssues": "이슈 {count}개 더 보기",
+    "inComment": "· 댓글에서"
   },
   "jump": {
     "title": "작업 번호로 이동",

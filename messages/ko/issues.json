@@ -106,7 +106,17 @@
     "archivedHint": "보관된 프로젝트는 읽기 전용입니다.",
     "commentFailed": "댓글을 남기지 못했습니다.",
     "viewFile": "{name} 보기",
-    "unknown": "알 수 없음"
+    "unknown": "알 수 없음",
+    "backToList": "← 이슈 목록",
+    "opened": "<b>{name}</b>님이 {when} 열었다 · 댓글 {count}",
+    "resolveAction": "해결됨으로",
+    "fields": "이슈 정보",
+    "status": "상태",
+    "expandFields": "자세히·고치기",
+    "collapseFields": "접기",
+    "labelCount": "라벨 {count}",
+    "sourceMessage": "메시지에서",
+    "viewSource": "↪ 원래 메시지 보기"
   },
   "comment": {
     "edit": "고치기",
