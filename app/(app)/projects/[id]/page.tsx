@@ -11,7 +11,7 @@ import { JoinPane } from "@/components/project/JoinPane";
 import { NotFoundPane } from "@/components/list-view/NotFoundPane";
 import { IssuesView } from "@/components/issues/IssuesView";
 import { IssuePane } from "@/components/issues/IssuePane";
-import { getIssueDetail, listIssues } from "@/lib/queries/issues";
+import { getIssueDetail, issueStamp, listIssues } from "@/lib/queries/issues";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("projects");
@@ -35,10 +35,12 @@ export default async function ProjectPage({ params, searchParams }: PageProps<"/
 
   if (q.tab === "issues" && view.issues.enabled) {
     const n = typeof q.issue === "string" && /^\d{1,9}$/.test(q.issue) ? Number(q.issue) : null;
+    // 표시를 목록보다 먼저 잰다 — 그 사이에 바뀐 것은 다음 확인에서 잡힌다(놓치지 않는 쪽으로).
+    const stamp = await issueStamp(id);
     const [issues, detail] = await Promise.all([listIssues(userId, id), n ? getIssueDetail(userId, id, n) : null]);
     return (
       <>
-        <IssuesView key={view.id} project={view} issues={issues ?? []} selected={detail ? detail.number : null} meId={userId} />
+        <IssuesView key={view.id} project={view} issues={issues ?? []} selected={detail ? detail.number : null} meId={userId} stamp={stamp} />
         {detail && (
           <IssuePane
             key={detail.id}

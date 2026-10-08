@@ -7,6 +7,7 @@ import { Icon } from "@/components/icons";
 import { ProjectHeader } from "@/components/project/ProjectHeader";
 import { NewIssueDialog } from "@/components/issues/NewIssueDialog";
 import { IssueBoard } from "@/components/issues/IssueBoard";
+import { useIssueRefresh } from "@/components/issues/useIssueRefresh";
 import { updateIssueAction } from "@/lib/actions/issue";
 import { handledAuthFailure, runAction } from "@/lib/actions/session-guard";
 import { Face, LabelChip, PriorityMark, StatusPill } from "@/components/issues/IssueBits";
@@ -32,11 +33,14 @@ export function IssuesView({
   issues,
   selected,
   meId,
+  stamp,
 }: {
   project: Member;
   issues: IssueItem[];
   selected: number | null;
   meId: string;
+  /** 서버가 이 화면을 그릴 때의 '바뀜 표시' — 자동 새로고침이 비교한다 */
+  stamp: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -44,6 +48,7 @@ export function IssuesView({
   const tp = useTranslations("projects") as unknown as Translate;
   const tz = useTimeZone();
   const readOnly = project.archivedAt != null;
+  useIssueRefresh(project.id, stamp);
   const [filter, setFilter] = useState<IssueFilter>({ state: "open" });
   const [creating, setCreating] = useState(false);
   // 목록 ↔ 보드. 사람마다 손에 익은 쪽이 달라 브라우저에 기억해 둔다(처음 그릴 때는 목록 — 서버와 같게).

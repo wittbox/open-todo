@@ -71,6 +71,19 @@ describe("이슈 상세 창", () => {
     expect(screen.getByRole("button", { name: "다시 열기" })).toBeTruthy();
   });
 
+  it("자동 새로고침으로 남이 바꾼 제목은 따라가고, 내가 고치던 제목은 두고", () => {
+    const pane = (i: IssueDetail) => (
+      <IssuePane issue={i} issueKey="BUG" labels={[]} members={MEMBERS} meId="rep" isAdmin={false} readOnly={false} />
+    );
+    const { rerender } = render(pane(issue()));
+    const input = () => screen.getByRole("textbox", { name: "이슈 제목" }) as HTMLTextAreaElement;
+    rerender(pane(issue({ title: "남이 고친 제목" })));
+    expect(input().value).toBe("남이 고친 제목");
+    fireEvent.change(input(), { target: { value: "내가 쓰는 중" } });
+    rerender(pane(issue({ title: "또 바뀐 제목" })));
+    expect(input().value).toBe("내가 쓰는 중");
+  });
+
   it("상태·담당자를 바꾸면 그대로 서버로", () => {
     show(issue());
     fireEvent.change(screen.getByRole("combobox", { name: "상태 바꾸기" }), { target: { value: "IN_PROGRESS" } });

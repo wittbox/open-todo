@@ -68,6 +68,9 @@
 - **Weekly report**: your issues land in the same sections as tasks — resolved this week is done (closing is
   the reporter's part), in progress is in progress — listed as `BUG-23` and grouped per project
   ("# Project (issues)" in the scope picker).
+- The issues tab **refreshes itself**: every 10 seconds it asks for a small change stamp and redraws only
+  when something changed (paused while the browser tab is hidden). Filters, the board/list choice and a
+  half-written comment survive; the pane's title follows someone else's edit unless you are editing it.
 - **Migration** `20261008000000_issues` adds the issue tables and project columns; no existing data changes.
 
 ## 0.1.0 — 2026-09-21

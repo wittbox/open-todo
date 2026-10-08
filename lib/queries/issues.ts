@@ -242,6 +242,35 @@ export async function listMyIssues(userId: string, due?: { from: Date; to: Date 
     );
 }
 
+/**
+ * 이 프로젝트 이슈들의 '바뀜 표시' — 이슈 화면이 몇 초마다 이것만 물어보고, 달라졌을 때만 화면을 다시 그린다.
+ * 이슈 수·마지막 갱신(상태·담당·댓글은 이슈의 updatedAt 을 올린다), 기록 수와 댓글 고침·지움 시각, 라벨·지켜보기 수.
+ * 내용을 싣지 않으므로 멤버 확인은 부르는 쪽이 한다.
+ */
+export async function issueStamp(projectId: string): Promise<string> {
+  const [issues, events, labels, watchers] = await Promise.all([
+    prisma.issue.aggregate({ where: { projectId }, _count: { _all: true }, _max: { updatedAt: true } }),
+    prisma.issueEvent.aggregate({
+      where: { issue: { projectId } },
+      _count: { _all: true },
+      _max: { createdAt: true, editedAt: true, deletedAt: true },
+    }),
+    prisma.issueLabel.count({ where: { projectId } }),
+    prisma.issueWatcher.count({ where: { issue: { projectId } } }),
+  ]);
+  const t = (d: Date | null) => d?.getTime() ?? 0;
+  return [
+    issues._count._all,
+    t(issues._max.updatedAt),
+    events._count._all,
+    t(events._max.createdAt),
+    t(events._max.editedAt),
+    t(events._max.deletedAt),
+    labels,
+    watchers,
+  ].join(".");
+}
+
 /** 사이드바 '나에게 할당됨' 숫자에 더할 이슈 수(listMyIssues 와 같은 조건) */
 export async function countMyIssues(userId: string): Promise<number> {
   return prisma.issue.count({

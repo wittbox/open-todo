@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { getSessionUserId } from "@/lib/session";
 import { getProjectRole, PermissionError } from "@/lib/permissions";
 import { createIssue } from "@/lib/issues/core";
+import { issueStamp } from "@/lib/queries/issues";
 import { ActionError } from "@/lib/actions/_helpers";
 import { MAX_FILES_PER_MESSAGE } from "@/lib/files/policy";
 import { crossSiteRejected, isCrossSiteRequest } from "@/lib/http";
@@ -19,6 +20,20 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Translate = (key: string, values?: Record<string, string | number>) => string;
+
+/**
+ * 이슈 화면의 자동 새로고침이 묻는 '바뀜 표시'. 달라졌으면 화면이 서버 렌더링을 다시 받는다.
+ * 없는 프로젝트와 비멤버는 POST 와 같은 404.
+ */
+export async function GET(_req: NextRequest, ctx: RouteContext<"/api/projects/[id]/issues">) {
+  const t = translatorFor((await getRequestPrefs()).locale) as unknown as Translate;
+  const userId = await getSessionUserId();
+  if (!userId) return NextResponse.json({ error: t("errors.unauthenticated") }, { status: 401 });
+
+  const { id } = await ctx.params;
+  if (!(await getProjectRole(userId, id))) return NextResponse.json({ error: t("projects.errors.notFound") }, { status: 404 });
+  return NextResponse.json({ stamp: await issueStamp(id) }, { headers: { "Cache-Control": "no-store" } });
+}
 
 export async function POST(req: NextRequest, ctx: RouteContext<"/api/projects/[id]/issues">) {
   if (isCrossSiteRequest(req.headers)) return crossSiteRejected();

@@ -377,4 +377,48 @@ d("이슈 (DB)", () => {
       expect(await countMyIssues(f.member.id)).toBe(before);
     });
   });
+
+  describe("자동 새로고침 표시", () => {
+    it("상태·댓글·댓글 고침·지움·지켜보기·지우기마다 바뀌고, 아무 일 없으면 그대로", async () => {
+      const { issueStamp } = await import("@/lib/queries/issues");
+      as(f.member.id);
+      const i = ok(await A.createIssueAction({ projectId: f.priv.id, title: "표시 확인", body: "" }));
+      const seen = new Set<string>();
+      const step = async (what: string) => {
+        const s = await issueStamp(f.priv.id);
+        expect(seen.has(s), what).toBe(false);
+        seen.add(s);
+        return s;
+      };
+      const start = await step("만듦");
+      expect(await issueStamp(f.priv.id)).toBe(start);
+      ok(await A.updateIssueAction(i.id, { status: "IN_PROGRESS" }));
+      await step("상태");
+      const c = ok(await A.addCommentAction(i.id, "봤습니다"));
+      await step("댓글");
+      ok(await A.editCommentAction(c.id, "봤어요"));
+      await step("댓글 고침");
+      ok(await A.deleteCommentAction(c.id));
+      await step("댓글 지움");
+      as(f.owner.id);
+      ok(await A.setWatchingAction(i.id, true));
+      await step("지켜보기");
+      ok(await A.deleteIssueAction(i.id));
+      await step("이슈 지움");
+    });
+
+    it("바뀜 표시 주소는 멤버에게만 — 로그아웃 401, 외부인 404", async () => {
+      const { GET } = await import("@/app/api/projects/[id]/issues/route");
+      const call = () =>
+        GET(new Request(`http://x.test/api/projects/${f.priv.id}/issues`) as never, { params: Promise.resolve({ id: f.priv.id }) } as never);
+      as(f.member.id);
+      const res = await call();
+      expect(res.status).toBe(200);
+      expect(((await res.json()) as { stamp: string }).stamp).toMatch(/^\d+(\.\d+){7}$/);
+      as(f.stranger.id);
+      expect((await call()).status).toBe(404);
+      currentUser = "";
+      expect((await call()).status).toBe(401);
+    });
+  });
 });

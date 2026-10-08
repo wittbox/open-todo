@@ -63,6 +63,12 @@ export function IssuePane({
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [title, setTitle] = useState(issue.title);
+  // 자동 새로고침으로 남이 바꾼 제목이 내려오면 따라간다 — 내가 고치던 중(화면 값이 옛 서버 값과 다름)이면 두고.
+  const [serverTitle, setServerTitle] = useState(issue.title);
+  if (serverTitle !== issue.title) {
+    setServerTitle(issue.title);
+    if (title === serverTitle) setTitle(issue.title);
+  }
   const [editingBody, setEditingBody] = useState(false);
   const [body, setBody] = useState(issue.body);
   const [editingLabels, setEditingLabels] = useState(false);
@@ -318,7 +324,7 @@ export function IssuePane({
                 <p className="text-[13px] text-ink-3">{t("pane.noBody")}</p>
               )}
               {canWrite && (
-                <button type="button" onClick={() => setEditingBody(true)} className="mt-2 text-[12px] text-link hover:underline">
+                <button type="button" onClick={() => (setBody(issue.body), setEditingBody(true))} className="mt-2 text-[12px] text-link hover:underline">
                   {t("pane.editBody")}
                 </button>
               )}
