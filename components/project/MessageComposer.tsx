@@ -334,12 +334,12 @@ export function MessageComposer({
             <Icon name="at" size={15} />
           </button>
         )}
-        <span className="ml-1 text-[11.5px] text-ink-3 pointer-coarse:hidden">{allowFiles ? t("composer.hintWithFiles") : t("composer.hint")}</span>
+        <span className="ml-1 min-w-0 text-[11.5px] text-ink-3 pointer-coarse:hidden">{allowFiles ? t("composer.hintWithFiles") : t("composer.hint")}</span>
         <button
           type="button"
           onClick={() => void submit()}
           disabled={!canSend}
-          className="ml-auto inline-flex h-[26px] items-center gap-1.5 rounded bg-link px-3 text-[12.5px] text-white disabled:bg-[#c8c6c4] pointer-coarse:h-9 pointer-coarse:rounded-full pointer-coarse:px-4 pointer-coarse:text-[14px]"
+          className="ml-auto inline-flex h-[26px] shrink-0 items-center whitespace-nowrap gap-1.5 rounded bg-link px-3 text-[12.5px] text-white disabled:bg-[#c8c6c4] pointer-coarse:h-9 pointer-coarse:rounded-full pointer-coarse:px-4 pointer-coarse:text-[14px]"
         >
           <Icon name="send" size={13} />
           {busy ? t("composer.sending") : t("composer.send")}
