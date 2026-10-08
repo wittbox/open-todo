@@ -5,5 +5,14 @@
     "tooLarge": "파일 하나는 {mb}MB까지 올릴 수 있습니다.",
     "executable": "실행 파일은 올릴 수 없습니다 (.{ext})",
     "tooManyPerMessage": "메시지 하나에 {max}개까지 붙일 수 있습니다."
+  },
+  "viewer": {
+    "openInTab": "새 탭에서 열기",
+    "download": "내려받기",
+    "close": "닫기",
+    "prev": "이전 사진",
+    "next": "다음 사진",
+    "actualSize": "누르면 원본 크기",
+    "fit": "누르면 화면 맞춤"
   }
 }

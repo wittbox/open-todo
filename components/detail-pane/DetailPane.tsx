@@ -6,6 +6,8 @@ import { Icon, type IconName } from "@/components/icons";
 import { ListPath } from "@/components/detail-pane/ListPath";
 import { PANE_CLASS } from "@/components/shell/shell";
 import { Calendar } from "@/components/ui/calendar";
+import { GrowingTextarea, onEnter, oneLine } from "@/components/ui/GrowingTextarea";
+import { ImageViewer } from "@/components/ui/ImageViewer";
 import { createStep, deleteAttachment, deleteStep, deleteTask, setAssignee, setReminder, setRepeat, updateStep, updateTask } from "@/lib/actions/task";
 import { addDays, dateOnlyFromString, dateOnlyToString, daysFromToday, isOverdue, todayDateOnly } from "@/lib/date";
 import { DATE_ONLY } from "@/lib/format";
@@ -50,7 +52,19 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
   const fileRef = useRef<HTMLInputElement>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const stepRef = useRef<HTMLInputElement>(null);
+  const stepRef = useRef<HTMLTextAreaElement>(null);
+  // 사진 첨부 모달 — 이 작업의 사진끼리 넘긴다.
+  const [viewing, setViewing] = useState<number | null>(null);
+  const photos = task.attachments.filter((a) => isInlineImage(a.mimeType));
+
+  function addStep() {
+    const el = stepRef.current;
+    const v = el ? oneLine(el.value).trim() : "";
+    if (!el || !v) return;
+    el.value = "";
+    el.style.height = ""; // 늘어났던 칸을 한 줄로 되돌린다
+    act(() => createStep(task.id, v));
+  }
 
   useEffect(() => {
     if (!toast) return;
@@ -160,19 +174,14 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
             >
               {task.isCompleted && <Icon name="check" size={13} />}
             </button>
-            <textarea
+            <GrowingTextarea
               value={title}
               readOnly={!canWrite}
-              rows={1}
-              onChange={(e) => setTitle(e.target.value)}
+              aria-label={t("detail.taskName")}
+              onChange={(e) => setTitle(oneLine(e.target.value))}
               onBlur={() => title.trim() && title !== task.title && act(() => updateTask(task.id, { title }))}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  e.currentTarget.blur();
-                }
-              }}
-              className={`flex-1 resize-none bg-transparent text-base font-semibold leading-snug outline-none ${
+              onKeyDown={(e) => onEnter(e, () => e.currentTarget.blur())}
+              className={`flex-1 bg-transparent text-base font-semibold leading-snug outline-none ${
                 task.isCompleted ? "text-ink-2 line-through" : ""
               }`}
             />
@@ -196,26 +205,28 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
           </button>
 
           {task.steps.map((s) => (
-            <div key={s.id} className="group flex items-center gap-3 border-t border-divider px-3.5 py-2.5">
+            <div key={s.id} className="group flex items-start gap-3 border-t border-divider px-3.5 py-2.5">
               <button
                 disabled={!canWrite}
                 onClick={() => act(() => updateStep(s.id, { isCompleted: !s.isCompleted }))}
                 aria-label={s.isCompleted ? t("detail.stepUncomplete") : t("detail.stepComplete")}
-                className={`grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-[1.5px] border-ink-2 ${
+                className={`mt-px grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-[1.5px] border-ink-2 ${
                   s.isCompleted ? "border-[#2564cf] bg-[#2564cf] text-white" : ""
                 }`}
               >
                 {s.isCompleted && <Icon name="check" size={11} />}
               </button>
-              <input
+              {/* 길게 쓰면 잘리던 한 줄 입력칸 → 내용만큼 늘어나는 칸. Enter 는 저장, 줄바꿈은 없다. */}
+              <GrowingTextarea
                 defaultValue={s.title}
                 readOnly={!canWrite}
+                aria-label={t("detail.stepName")}
                 onBlur={(e) => {
-                  const v = e.currentTarget.value.trim();
+                  const v = oneLine(e.currentTarget.value).trim();
                   if (v && v !== s.title) act(() => updateStep(s.id, { title: v }));
                 }}
-                onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-                className={`min-w-0 flex-1 bg-transparent text-sm outline-none ${
+                onKeyDown={(e) => onEnter(e, () => e.currentTarget.blur())}
+                className={`min-w-0 flex-1 bg-transparent text-sm leading-5 outline-none ${
                   s.isCompleted ? "text-ink-2 line-through" : ""
                 }`}
               />
@@ -223,7 +234,7 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
                 <button
                   onClick={() => act(() => deleteStep(s.id))}
                   aria-label={t("detail.deleteStep")}
-                  className="shrink-0 text-ink-3 opacity-0 group-hover:opacity-100 hover:text-danger pointer-coarse:opacity-100"
+                  className="mt-[3px] shrink-0 text-ink-3 opacity-0 group-hover:opacity-100 hover:text-danger pointer-coarse:opacity-100"
                 >
                   <Icon name="x" size={14} />
                 </button>
@@ -235,18 +246,17 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                const v = stepRef.current?.value.trim();
-                if (!v) return;
-                stepRef.current!.value = "";
-                act(() => createStep(task.id, v));
+                addStep();
               }}
-              className="flex items-center gap-3 border-t border-divider px-3.5 py-2.5"
+              className="flex items-start gap-3 border-t border-divider px-3.5 py-2.5"
             >
-              <Icon name="plus" size={16} className="shrink-0 text-link" />
-              <input
+              <Icon name="plus" size={16} className="mt-0.5 shrink-0 text-link" />
+              <GrowingTextarea
                 ref={stepRef}
                 placeholder={t("detail.nextStep")}
-                className="min-w-0 flex-1 bg-transparent text-sm text-link outline-none placeholder:text-link"
+                aria-label={t("detail.nextStep")}
+                onKeyDown={(e) => onEnter(e, addStep)}
+                className="min-w-0 flex-1 bg-transparent text-sm leading-5 text-link outline-none placeholder:text-link"
               />
             </form>
           )}
@@ -391,8 +401,10 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
               file={a}
               canDelete={canWrite}
               onDelete={() => act(() => deleteAttachment(a.id))}
+              onView={() => setViewing(photos.findIndex((p) => p.id === a.id))}
             />
           ))}
+          {viewing != null && <ImageViewer images={photos} start={viewing} onClose={() => setViewing(null)} />}
 
           {canWrite && (
             <div
@@ -493,41 +505,59 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
  * "매주 수요일"처럼 지금 이 작업에 맞는 말이 나온다.
  */
 /** 첨부 한 줄. 이미지는 눌러서 펼쳐 보고, 나머지는 내려받는다. */
+/** 첨부 한 줄. 사진은 눌러서 모달로 보고(같은 작업의 사진끼리 넘기기), 나머지는 내려받는다. */
 function AttachmentRow({
   file,
   canDelete,
   onDelete,
+  onView,
 }: {
   file: AttachmentItem;
   canDelete: boolean;
   onDelete: () => void;
+  onView: () => void;
 }) {
   const t = useTranslations("tasks");
   const inline = isInlineImage(file.mimeType);
   const ext = file.name.split(".").pop()?.slice(0, 4).toUpperCase() ?? "";
+  const label = (
+    <>
+      <span className="block truncate text-sm">{file.name}</span>
+      <span className="block text-[11px] text-ink-3">
+        {formatBytes(file.size)}
+        {file.uploaderName ? ` · ${file.uploaderName}` : ""}
+      </span>
+    </>
+  );
+  const thumb = "grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded bg-pane-bg text-[9px] text-ink-2";
 
   return (
     <div className="group flex items-center gap-3 border-t border-divider px-3.5 py-2.5">
-      <a
-        href={`/api/files/${file.id}`}
-        target={inline ? "_blank" : undefined}
-        rel="noreferrer"
-        className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded bg-pane-bg text-[9px] text-ink-2"
-      >
-        {inline ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={`/api/files/${file.id}`} alt="" className="h-full w-full object-cover" />
-        ) : (
-          ext
-        )}
-      </a>
-      <a href={`/api/files/${file.id}`} className="min-w-0 flex-1" target={inline ? "_blank" : undefined} rel="noreferrer">
-        <span className="block truncate text-sm">{file.name}</span>
-        <span className="block text-[11px] text-ink-3">
-          {formatBytes(file.size)}
-          {file.uploaderName ? ` · ${file.uploaderName}` : ""}
-        </span>
-      </a>
+      {inline ? (
+        <>
+          <button
+            type="button"
+            onClick={onView}
+            aria-label={t("detail.viewPhoto", { name: file.name })}
+            className={`${thumb} cursor-zoom-in`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`/api/files/${file.id}`} alt="" className="h-full w-full object-cover" />
+          </button>
+          <button type="button" onClick={onView} className="min-w-0 flex-1 text-left">
+            {label}
+          </button>
+        </>
+      ) : (
+        <>
+          <a href={`/api/files/${file.id}`} className={thumb}>
+            {ext}
+          </a>
+          <a href={`/api/files/${file.id}`} className="min-w-0 flex-1">
+            {label}
+          </a>
+        </>
+      )}
       {canDelete && (
         <button
           onClick={onDelete}

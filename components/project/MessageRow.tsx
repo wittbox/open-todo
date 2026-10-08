@@ -5,6 +5,7 @@ import { Icon } from "@/components/icons";
 import { ContextMenu, type MenuAnchor, type MenuItem } from "@/components/ui/menu";
 import { MessageBody } from "@/components/project/MessageBody";
 import { MessageEditor } from "@/components/project/MessageEditor";
+import { ImageViewer } from "@/components/ui/ImageViewer";
 import { formatBytes, isInlineImage } from "@/lib/files/policy";
 import { relativeShort, timeOf, type Translate } from "@/lib/projects/format";
 import type { MessageItem } from "@/lib/queries/project";
@@ -71,6 +72,9 @@ export function MessageRow({
   const mentionLabels = { all: t("message.mentionAll"), unknown: t("message.unknownUser") };
   const [editing, setEditing] = useState(false);
   const [menu, setMenu] = useState<MenuAnchor | null>(null);
+  // 메시지에 붙은 사진을 모달로 — 이 메시지의 사진끼리 넘긴다.
+  const [viewing, setViewing] = useState<number | null>(null);
+  const photos = m.files.filter((f) => isInlineImage(f.mimeType));
   const press = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
   // 길게 눌러 메뉴를 연 뒤 손을 떼면 click 이 한 번 온다 — 링크·답글 버튼이 눌리지 않게 삼킨다.
   const swallowClick = useRef(false);
@@ -198,10 +202,16 @@ export function MessageRow({
           <div className="mt-1.5 flex flex-wrap gap-2">
             {m.files.map((f) =>
               isInlineImage(f.mimeType) ? (
-                <a key={f.id} href={`/api/files/${f.id}`} target="_blank" rel="noopener" title={f.name}>
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setViewing(photos.findIndex((p) => p.id === f.id))}
+                  title={f.name}
+                  className="cursor-zoom-in"
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={`/api/files/${f.id}`} alt={f.name} className="max-h-[220px] max-w-[320px] rounded border border-[#e1dfdd] object-cover" />
-                </a>
+                </button>
               ) : (
                 <a
                   key={f.id}
@@ -216,6 +226,8 @@ export function MessageRow({
             )}
           </div>
         )}
+
+        {viewing != null && <ImageViewer images={photos} start={viewing} onClose={() => setViewing(null)} />}
 
         {!inThread && m.replyCount > 0 && onOpenThread && (
           <button

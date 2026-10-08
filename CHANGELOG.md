@@ -35,6 +35,14 @@
 - Duplicating a list shared with you now lands in one of your own groups (it used to keep the other
   person's group id).
 
+### Task details
+- Step names wrap and grow with their content instead of being cut off; so does the task title (it was
+  stuck at one line and scrolled inside). Enter still saves and never adds a line break; an Enter that
+  arrives while an IME is composing (Korean, Japanese, …) is ignored so the last character isn't lost.
+- Clicking an attached photo — on a task or in a project message — opens a viewer over the page instead
+  of a new tab: fitted to the screen, arrows / arrow keys / swipe between the photos of the same task or
+  message, click for actual size, with open-in-new-tab and download. Other files still download.
+
 ## 0.1.0 — 2026-09-21
 
 First public release.
