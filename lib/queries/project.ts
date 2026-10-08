@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db";
+import { getIssueSettings, type IssueSettings } from "@/lib/queries/issues";
+import { issueRef } from "@/lib/issues/format";
 import { getProjectRole, ROLE_RANK, type Role } from "@/lib/permissions";
 import type { ProjectRole } from "@/app/generated/prisma/enums";
 import type { AttachmentItem } from "@/lib/queries/list";
@@ -50,6 +52,8 @@ export type MessageItem = {
   mentionsAll: boolean;
   mentions: { userId: string; name: string }[];
   files: AttachmentItem[];
+  /** 이 메시지에서 만든 이슈(⋯ › 이슈로 만들기) */
+  issues: { ref: string; title: string }[];
   isMine: boolean;
   canDelete: boolean;
 };
@@ -71,6 +75,10 @@ export type ProjectView =
       hasMore: boolean;
       lastReadSeq: number;
       serverTime: string;
+      /** 이슈 설정(켬·약어·템플릿·라벨) — 탭과 설정 창이 쓴다 */
+      issues: IssueSettings;
+      /** 열린 이슈 수(닫힘 뺀 것) — 탭 옆 숫자 */
+      openIssueCount: number;
     }
   | { kind: "joinable"; id: string; name: string; purpose: string; memberCount: number };
 
@@ -110,6 +118,7 @@ type Ctx = {
   myRole: Role;
   replies: Map<string, { count: number; last: Date | null }>;
   pinnerNames: Map<string, string>;
+  issues: Map<string, { ref: string; title: string }[]>;
 };
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -138,8 +147,26 @@ function toItem(m: RawMessage, ctx: Ctx): MessageItem {
       uploaderName: a.uploader?.name ?? null, createdAt: a.createdAt.toISOString(),
     })),
     isMine,
+    issues: ctx.issues.get(m.id) ?? [],
     canDelete: isMine || ROLE_RANK[ctx.myRole] >= ROLE_RANK.ADMIN,
   };
+}
+
+/** 메시지에서 만든 이슈들. 메시지 행에 두지 않고 그때그때 찾는다(답글 수와 같은 방식). */
+async function issueLinks(ids: string[]): Promise<Map<string, { ref: string; title: string }[]>> {
+  const out = new Map<string, { ref: string; title: string }[]>();
+  if (ids.length === 0) return out;
+  const rows = await prisma.issue.findMany({
+    where: { sourceMessageId: { in: ids } },
+    orderBy: { number: "asc" },
+    select: { sourceMessageId: true, number: true, title: true, project: { select: { issueKey: true } } },
+  });
+  for (const r of rows) {
+    const list = out.get(r.sourceMessageId!) ?? [];
+    list.push({ ref: issueRef(r.project.issueKey, r.number), title: r.title });
+    out.set(r.sourceMessageId!, list);
+  }
+  return out;
 }
 
 /** 원글들의 답글 수·마지막 답글 시각. 저장해 두지 않고 그때그때 센다(삭제와 얽히지 않게). */
@@ -165,11 +192,12 @@ async function pinnerNames(rows: { pinnedById: string | null }[]): Promise<Map<s
 
 /** 원시 행 묶음 → 화면 항목. 여러 조회가 같은 모양을 내도록 한 곳에 둔다. */
 export async function toMessageItems(rows: RawMessage[], meId: string, myRole: Role): Promise<MessageItem[]> {
-  const [replies, names] = await Promise.all([
+  const [replies, names, issues] = await Promise.all([
     replySummary(rows.filter((r) => r.parentId == null).map((r) => r.id)),
     pinnerNames(rows),
+    issueLinks(rows.map((r) => r.id)),
   ]);
-  const ctx: Ctx = { meId, myRole, replies, pinnerNames: names };
+  const ctx: Ctx = { meId, myRole, replies, pinnerNames: names, issues };
   return rows.map((r) => toItem(r, ctx));
 }
 
@@ -288,7 +316,7 @@ export async function getProjectView(userId: string, projectId: string): Promise
   }
 
   const myRole: Role = project.ownerId === userId ? "ADMIN" : membership.role === "ADMIN" ? "ADMIN" : "EDITOR";
-  const [members, { rows, hasMore }, pinnedRows] = await Promise.all([
+  const [members, { rows, hasMore }, pinnedRows, issues, openIssueCount] = await Promise.all([
     getProjectMembers(projectId, userId),
     loadRoots(projectId, undefined, PAGE_SIZE),
     prisma.message.findMany({
@@ -297,6 +325,8 @@ export async function getProjectView(userId: string, projectId: string): Promise
       orderBy: { pinnedAt: "desc" },
       take: MAX_PINS,
     }),
+    getIssueSettings(projectId),
+    prisma.issue.count({ where: { projectId, status: { not: "CLOSED" } } }),
   ]);
   const [messages, pinned] = await Promise.all([
     toMessageItems(rows, userId, myRole),
@@ -319,6 +349,8 @@ export async function getProjectView(userId: string, projectId: string): Promise
     hasMore,
     lastReadSeq: membership.lastReadSeq,
     serverTime: new Date().toISOString(),
+    issues,
+    openIssueCount,
   };
 }
 

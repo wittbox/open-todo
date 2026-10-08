@@ -100,6 +100,8 @@ const PATHS: Record<string, React.ReactElement> = {
     </g>
   ),
   repeat: <path {...S} strokeLinecap="round" d="M4 10a6 6 0 016-6h8M18 4l-3-3M18 4l-3 3M20 14a6 6 0 01-6 6H6M6 20l3 3M6 20l3-3" />,
+  // 이슈 — 깃대 + 깃발
+  flag: <path {...S} strokeLinecap="round" strokeLinejoin="round" d="M5 21V4M5 4h11l-2 4 2 4H5" />,
   clip: <path {...S} strokeLinecap="round" d="M20 11l-8.5 8.5a4.6 4.6 0 01-6.5-6.5L13 4.5a3.2 3.2 0 014.5 4.5l-8 8a1.8 1.8 0 01-2.5-2.5l7.5-7.5" />,
   link: <path {...S} strokeLinecap="round" d="M10 14a4 4 0 006 .5l2.5-2.5a4 4 0 00-5.7-5.7L11.5 7.5M14 10a4 4 0 00-6-.5L5.5 12a4 4 0 005.7 5.7L12.5 16.5" />,
   x: <path {...S} strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />,

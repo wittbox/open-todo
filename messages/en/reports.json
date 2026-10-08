@@ -13,7 +13,8 @@
     "future": "Due later",
     "overdue": "Overdue",
     "new": "Added this week",
-    "manual": "Moved by hand"
+    "manual": "Moved by hand",
+    "issue": "Issue in progress"
   },
   "defaultTitle": "Weekly report - {who} {date}",
   "page": {

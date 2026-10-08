@@ -95,9 +95,9 @@ describe("단계 칸", () => {
   it("다음 단계: Enter 로 추가하고 칸을 비운다. 붙여 넣은 줄바꿈은 띄어쓰기로", () => {
     render(<DetailPane task={detail()} canWrite />);
     const next = screen.getByRole("textbox", { name: "다음 단계" }) as HTMLTextAreaElement;
-    fireEvent.change(next, { target: { value: "  평가서에 관리번호를\n포함한 계측기 정보  " } });
+    fireEvent.change(next, { target: { value: "  회의록에 담당자와\n다음 일정 적기  " } });
     fireEvent.keyDown(next, { key: "Enter" });
-    expect(calls.createStep).toHaveBeenCalledWith("t1", "평가서에 관리번호를 포함한 계측기 정보");
+    expect(calls.createStep).toHaveBeenCalledWith("t1", "회의록에 담당자와 다음 일정 적기");
     expect(next.value).toBe("");
   });
 
@@ -179,7 +179,7 @@ describe("프로젝트 메시지의 사진도 같은 모달", () => {
         { id: "f2", name: "견적.pdf", size: 2000, mimeType: "application/pdf" },
         { id: "f3", name: "뒷면.jpg", size: 3000, mimeType: "image/jpeg" },
       ],
-      replyCount: 0, lastReplyAt: null, isMine: true, canDelete: true,
+      replyCount: 0, lastReplyAt: null, isMine: true, canDelete: true, issues: [],
     } as unknown as import("@/lib/queries/project").MessageItem;
     render(<MessageRow m={m} meId="u1" readOnly={false} onEdit={() => {}} onDelete={() => {}} />);
 

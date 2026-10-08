@@ -55,6 +55,14 @@ enum NotificationKind {
   MENTION
   /// 누가 나를 프로젝트에 넣었다
   PROJECT_INVITED
+  /// 누가 이슈를 나에게 맡겼다
+  ISSUE_ASSIGNED
+  /// 내가 올렸거나 맡았거나 지켜보는 이슈의 상태가 바뀌었다(해결됨이면 보고자에게 "확인하고 닫아 주세요")
+  ISSUE_STATUS
+  /// 내가 올렸거나 맡았거나 지켜보는 이슈에 댓글이 달렸다
+  ISSUE_COMMENT
+  /// 이슈 본문·댓글에서 누가 나를 @로 불렀다
+  ISSUE_MENTION
 }
 
 /// 프로젝트 멤버 역할. 읽기 전용 멤버는 없다 — 대화 공간에 들어왔으면 말할 수 있다.
@@ -154,6 +162,10 @@ model User {
   ownedProjects      Project[]           @relation("ProjectOwner")
   projectMemberships ProjectMember[]
   messages           Message[]           @relation("MessageAuthor")
+  assignedIssues     Issue[]             @relation("IssueAssignee")
+  reportedIssues     Issue[]             @relation("IssueReporter")
+  issueEvents        IssueEvent[]        @relation("IssueEventActor")
+  watchedIssues      IssueWatcher[]
   messageMentions    MessageMention[]
 }
 
@@ -353,6 +365,11 @@ model Notification {
   project   Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   messageId String?
   message   Message?         @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  /// 이슈에 관한 알림만. 이슈가 지워지면 알림도 함께 사라진다.
+  issueId   String?
+  issue     Issue?           @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  /// 댓글·멘션 알림은 그 댓글(이벤트)마다 한 번 — 같은 날 같은 이슈에 댓글이 여럿이어도 각각 알린다.
+  issueEventId String?
   /// 그 일을 한 사람. 담당자 지정·공유·멘션·초대에 있다.
   actorId   String?
   actor     User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
@@ -365,11 +382,12 @@ model Notification {
   /// 유니크 제약으로는 못 막는다(Postgres 에서 NULL 은 서로 다르다) — 코드에서 확인한다.
   @@index([userId, kind, taskId, dayKey])
   @@index([userId, kind, messageId])
+  @@index([userId, kind, issueId])
   @@index([userId, readAt])
   @@index([userId, createdAt])
 }
 
-/// 작업 또는 프로젝트 메시지에 붙인 파일. 둘 중 정확히 하나에 붙는다
+/// 작업·프로젝트 메시지·이슈 본문·이슈 댓글 중 정확히 하나에 붙인 파일
 /// (마이그레이션의 CHECK "Attachment_owner_check" 가 지킨다).
 ///
 /// 실제 내용은 디스크에 있고 여기에는 그 열쇠와 보여 줄 이름만 둔다.
@@ -381,6 +399,12 @@ model Attachment {
   task       Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
   messageId  String?
   message    Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  /// 이슈 본문에 붙인 파일
+  issueId    String?
+  issue      Issue?   @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  /// 이슈 댓글에 붙인 파일
+  issueEventId String?
+  issueEvent   IssueEvent? @relation(fields: [issueEventId], references: [id], onDelete: Cascade)
   /// 올린 사람. 계정이 사라져도 파일은 남는다.
   uploaderId String?
   uploader   User?    @relation("AttachmentUploader", fields: [uploaderId], references: [id], onDelete: SetNull)
@@ -394,6 +418,8 @@ model Attachment {
 
   @@index([taskId, createdAt])
   @@index([messageId])
+  @@index([issueId])
+  @@index([issueEventId])
 }
 
 /// "나의 하루"는 사람마다 다르다. 공유 목록의 같은 작업을 두 사람이 각자
@@ -527,9 +553,20 @@ model Project {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
+  /// 이슈 탭을 켰는가. 끄면 탭만 숨고 이슈는 남는다.
+  issuesEnabled Boolean   @default(false)
+  /// 이슈 번호 앞 약어 — "BUG" 면 BUG-23. 영문 대문자로 시작하는 2~6자, 설치 전체에서 하나(/i/BUG-23 이 이 프로젝트를 가리킨다).
+  issueKey      String?   @unique
+  /// 마지막으로 준 이슈 번호. 이슈를 지워도 되돌리지 않는다(번호 재사용 없음).
+  issueSeq      Int       @default(0)
+  /// 새 이슈 본문에 미리 채울 글(버그면 재현 순서·기대 결과·실제 결과·환경)
+  issueTemplate String    @default("")
+
   members       ProjectMember[]
   messages      Message[]
   notifications Notification[]
+  issues        Issue[]
+  issueLabels   IssueLabel[]
 
   @@index([isPublic, archivedAt])
 }
@@ -566,6 +603,8 @@ model Message {
   parentId    String?
   parent      Message?  @relation("Thread", fields: [parentId], references: [id], onDelete: Cascade)
   replies     Message[] @relation("Thread")
+  /// 이 메시지에서 만든 이슈들
+  createdIssues Issue[] @relation("IssueSource")
   body        String
   /// @전체 를 썼는지. 멤버 수만큼 행을 만들지 않는다.
   mentionsAll Boolean   @default(false)
@@ -599,5 +638,130 @@ model MessageMention {
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([messageId, userId])
+  @@index([userId])
+}
+
+/* ── 이슈 ───────────────────────────────────────── */
+
+enum IssueStatus {
+  /// 접수됨 — 아무도 손대지 않았다
+  OPEN
+  /// 담당자가 고치는 중
+  IN_PROGRESS
+  /// 담당자가 고쳤다 — 보고자·관리자의 확인을 기다린다
+  RESOLVED
+  /// 확인까지 끝났다(또는 하지 않기로 했다)
+  CLOSED
+}
+
+enum IssuePriority {
+  URGENT
+  HIGH
+  NORMAL
+  LOW
+}
+
+enum IssueEventKind {
+  CREATED
+  COMMENT
+  STATUS
+  ASSIGNEE
+  PRIORITY
+  LABELS
+  TITLE
+  DUE
+}
+
+/// 프로젝트 안의 이슈. 번호는 프로젝트마다 1부터(Project.issueSeq), 화면에는 "약어-번호".
+model Issue {
+  id          String        @id @default(cuid())
+  projectId   String
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  number      Int
+  title       String
+  /// 본문. 멘션은 메시지와 같은 <@userId> 토큰.
+  body        String        @default("")
+  status      IssueStatus   @default(OPEN)
+  priority    IssuePriority @default(NORMAL)
+  assigneeId  String?
+  assignee    User?         @relation("IssueAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  /// 올린 사람. 계정이 사라져도 이슈는 남는다.
+  reporterId  String?
+  reporter    User?         @relation("IssueReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  dueDate     DateTime?     @db.Date
+  /// 메시지에서 만든 이슈면 그 메시지(⋯ › 이슈로 만들기). 메시지 아래에 "↪ BUG-24" 로 이어 보인다.
+  sourceMessageId String?
+  sourceMessage   Message?  @relation("IssueSource", fields: [sourceMessageId], references: [id], onDelete: SetNull)
+  resolvedAt  DateTime?
+  closedAt    DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  labels        IssueLabelLink[]
+  events        IssueEvent[]
+  attachments   Attachment[]
+  watchers      IssueWatcher[]
+  notifications Notification[]
+
+  @@unique([projectId, number])
+  @@index([projectId, status])
+  @@index([assigneeId, status])
+  @@index([sourceMessageId])
+}
+
+/// 프로젝트마다 정하는 라벨(버그·개선·질문…)
+model IssueLabel {
+  id        String           @id @default(cuid())
+  projectId String
+  project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  /// 라벨 색 열쇠(LABEL_COLORS)
+  color     String           @default("gray")
+  createdAt DateTime         @default(now())
+  links     IssueLabelLink[]
+
+  @@unique([projectId, name])
+}
+
+model IssueLabelLink {
+  issueId String
+  issue   Issue      @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  labelId String
+  label   IssueLabel @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([issueId, labelId])
+  @@index([labelId])
+}
+
+/// 이슈의 활동 — 댓글과 바뀐 기록(상태·담당자·우선순위·라벨·제목·기한)이 한 줄로 시간순.
+/// 바뀐 기록은 문구 대신 값을 남긴다(fromValue/toValue) — 화면이 말을 만든다.
+model IssueEvent {
+  id          String         @id @default(cuid())
+  issueId     String
+  issue       Issue          @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  actorId     String?
+  actor       User?          @relation("IssueEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+  kind        IssueEventKind
+  /// 댓글 본문(COMMENT)
+  body        String         @default("")
+  fromValue   String?
+  toValue     String?
+  editedAt    DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime       @default(now())
+  attachments Attachment[]
+
+  @@index([issueId, createdAt])
+}
+
+/// 지켜보기 — 내가 올리거나 맡지 않은 이슈의 상태 변경·댓글도 알림으로 받는다.
+model IssueWatcher {
+  issueId   String
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([issueId, userId])
   @@index([userId])
 }

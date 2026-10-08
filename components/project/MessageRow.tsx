@@ -6,6 +6,7 @@ import { ContextMenu, type MenuAnchor, type MenuItem } from "@/components/ui/men
 import { MessageBody } from "@/components/project/MessageBody";
 import { MessageEditor } from "@/components/project/MessageEditor";
 import { ImageViewer } from "@/components/ui/ImageViewer";
+import Link from "next/link";
 import { formatBytes, isInlineImage } from "@/lib/files/policy";
 import { relativeShort, timeOf, type Translate } from "@/lib/projects/format";
 import type { MessageItem } from "@/lib/queries/project";
@@ -40,6 +41,8 @@ export function MessageRow({
   m,
   meId,
   meName,
+  issueKey,
+  onMakeIssue,
   readOnly,
   highlighted,
   inThread,
@@ -53,6 +56,10 @@ export function MessageRow({
   meId: string;
   /** 나를 부른 멘션에 붙일 내 이름 */
   meName?: string;
+  /** 이 프로젝트의 이슈 약어 — 본문의 BUG-23 을 링크로 */
+  issueKey?: string | null;
+  /** 이슈를 켠 프로젝트면 ⋯ › 이슈로 만들기 */
+  onMakeIssue?: (m: MessageItem) => void;
   /** 보관된 프로젝트. 도구를 감춘다. */
   readOnly: boolean;
   highlighted?: boolean;
@@ -94,6 +101,7 @@ export function MessageRow({
       items.push({ icon: "pin", label: m.pinnedAt ? t("message.unpin") : t("message.pin"), onSelect: () => onPin(m.id, !m.pinnedAt) });
     }
     if (onCopyLink) items.push({ icon: "link", label: t("message.copyLink"), onSelect: () => onCopyLink(m.id) });
+    if (onMakeIssue && !readOnly) items.push({ icon: "flag", label: t("message.makeIssue"), onSelect: () => onMakeIssue(m) });
     items.push({
       icon: "copy",
       label: t("message.copyText"),
@@ -195,7 +203,7 @@ export function MessageRow({
             }}
           />
         ) : (
-          <MessageBody body={m.body} mentions={m.mentions} meId={meId} meName={meName} />
+          <MessageBody body={m.body} mentions={m.mentions} meId={meId} meName={meName} issueKey={issueKey} />
         )}
 
         {m.files.length > 0 && !deleted && (
@@ -228,6 +236,18 @@ export function MessageRow({
         )}
 
         {viewing != null && <ImageViewer images={photos} start={viewing} onClose={() => setViewing(null)} />}
+
+        {m.issues.length > 0 && !deleted && (
+          <div className="mt-1 flex flex-col gap-0.5 text-[12.5px]">
+            {m.issues.map((i) => (
+              <Link key={i.ref} href={`/i/${i.ref}`} className="inline-flex items-center gap-1.5 text-ink-2 hover:text-link">
+                <span aria-hidden="true">↪</span>
+                <b className="font-mono font-semibold text-link">{i.ref}</b>
+                <span className="truncate">{i.title}</span>
+              </Link>
+            ))}
+          </div>
+        )}
 
         {!inThread && m.replyCount > 0 && onOpenThread && (
           <button

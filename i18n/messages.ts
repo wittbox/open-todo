@@ -6,6 +6,7 @@ import koCalendar from "@/messages/ko/calendar.json";
 import koCommon from "@/messages/ko/common.json";
 import koErrors from "@/messages/ko/errors.json";
 import koFiles from "@/messages/ko/files.json";
+import koIssues from "@/messages/ko/issues.json";
 import koMail from "@/messages/ko/mail.json";
 import koNav from "@/messages/ko/nav.json";
 import koNotifications from "@/messages/ko/notifications.json";
@@ -22,6 +23,7 @@ import enCalendar from "@/messages/en/calendar.json";
 import enCommon from "@/messages/en/common.json";
 import enErrors from "@/messages/en/errors.json";
 import enFiles from "@/messages/en/files.json";
+import enIssues from "@/messages/en/issues.json";
 import enMail from "@/messages/en/mail.json";
 import enNav from "@/messages/en/nav.json";
 import enNotifications from "@/messages/en/notifications.json";
@@ -46,6 +48,7 @@ const KO = {
   common: koCommon,
   errors: koErrors,
   files: koFiles,
+  issues: koIssues,
   mail: koMail,
   nav: koNav,
   notifications: koNotifications,
@@ -64,6 +67,7 @@ const EN = {
   common: enCommon,
   errors: enErrors,
   files: enFiles,
+  issues: enIssues,
   mail: enMail,
   nav: enNav,
   notifications: enNotifications,

@@ -236,7 +236,7 @@ export function ReportEditor({
               <p className="mb-1.5 text-xs text-ink-2">{t("editor.excluded", { count: excluded.length })}</p>
               {excluded.map((task) => (
                 <div key={task.id} className="flex items-baseline gap-2 py-1 text-sm text-ink-3">
-                  <span className="w-10 shrink-0 text-right font-mono text-[12.5px]">#{task.seq}</span>
+                  <span className={`${task.ref ? "w-14" : "w-10"} shrink-0 text-right font-mono text-[12.5px]`}>{task.ref ?? `#${task.seq}`}</span>
                   <span className="min-w-0 flex-1 truncate line-through">{task.title}</span>
                   <button
                     onClick={() => toggleExclude(task.id)}

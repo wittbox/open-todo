@@ -54,7 +54,7 @@ export function renderReportEmailHtml(
                 `<tr>` +
                 // 번호는 오른쪽에 붙여 제목 시작을 줄마다 맞춘다. align 속성이라 오래된
                 // 메일 클라이언트에서도 통한다.
-                `<td width="44" align="right" valign="top" style="padding:6px 8px 6px 0; font-size:13px; color:#666666; font-family:Consolas,monospace; white-space:nowrap;">#${t.seq}</td>` +
+                `<td width="44" align="right" valign="top" style="padding:6px 8px 6px 0; font-size:13px; color:#666666; font-family:Consolas,monospace; white-space:nowrap;">${t.ref ?? `#${t.seq}`}</td>` +
                 `<td valign="top" style="padding:6px 0; font-size:13px; color:#201f1e;">${esc(t.title)}</td>` +
                 `<td width="120" align="right" valign="top" style="padding:6px 0; font-size:12px; color:#666666; white-space:nowrap;">${esc(meta)}</td>` +
                 `</tr>` +
@@ -129,7 +129,7 @@ export function renderReportText(content: ReportContent): string {
         const meta = [t.assignee, t.stepTotal > 0 ? `${t.stepDone}/${t.stepTotal}` : null, t.dueLabel]
           .filter(Boolean)
           .join(" · ");
-        lines.push(`    #${t.seq}  ${t.title}${meta ? `  (${meta})` : ""}`);
+        lines.push(`    ${t.ref ?? `#${t.seq}`}  ${t.title}${meta ? `  (${meta})` : ""}`);
         if (t.comment) lines.push(`        ${t.comment}`);
       }
     }

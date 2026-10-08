@@ -18,7 +18,9 @@
     "list": "a list",
     "project": "a project",
     "report": "the weekly report",
-    "someone": "Someone"
+    "someone": "Someone",
+    "issue": "an issue",
+    "status": "another state"
   },
   "items": {
     "REMINDER": "Reminder for <b>{task}</b>",
@@ -27,7 +29,11 @@
     "SHARED": "{actor} shared <b>{list}</b> with you",
     "REPORT_SEND_FAILED": "Couldn't send the scheduled mail for <b>{report}</b>",
     "MENTION": "{actor} mentioned you in <b>{project}</b>",
-    "PROJECT_INVITED": "{actor} added you to <b>{project}</b>"
+    "PROJECT_INVITED": "{actor} added you to <b>{project}</b>",
+    "ISSUE_ASSIGNED": "{actor} assigned <b>{issue}</b> {title} to you",
+    "ISSUE_STATUS": "{actor} moved {mine, select, yes {your issue } other {}}<b>{issue}</b> {title} to <b>{status}</b>{confirm, select, yes { — please check it and close it} other {}}",
+    "ISSUE_COMMENT": "{actor} commented on <b>{issue}</b> {title}",
+    "ISSUE_MENTION": "{actor} mentioned you in <b>{issue}</b> {title}"
   },
   "time": {
     "now": "just now",

@@ -21,6 +21,10 @@ import type { AppLocale } from "@/i18n/locales";
 export type SourceTask = {
   id: string;
   seq: number;
+  /** 이슈면 "BUG-23" — 보고서에 #번호 대신 이것을 쓴다. 작업은 없음. */
+  ref?: string | null;
+  /** 이슈가 '진행 중' 상태 — 작업의 단계 진척처럼 착수 흔적으로 본다 */
+  issueInProgress?: boolean;
   title: string;
   listId: string;
   listName: string;
@@ -52,6 +56,8 @@ export type SourceTask = {
 export type ReportTask = {
   id: string;
   seq: number;
+  /** 이슈면 "BUG-23". 옛 발행본에는 없다 — 없으면 #seq 로 그린다. */
+  ref?: string | null;
   title: string;
   listId: string;
   path: string;
@@ -68,7 +74,7 @@ export type ReportTask = {
 };
 
 /** 자동 분류가 틀렸을 때 이유를 알아야 옮길지 판단할 수 있다. */
-export type SectionReason = "step" | "myday" | "due" | "future" | "overdue" | "new" | "manual";
+export type SectionReason = "step" | "myday" | "due" | "future" | "overdue" | "new" | "manual" | "issue";
 
 /** 묶음은 "그룹 › 목록"이되, 남의 목록이면 그 사람 이름까지가 한 묶음이다. */
 export type ReportGroup = { path: string; owner: string | null; tasks: ReportTask[] };
@@ -142,6 +148,7 @@ export function classify(
   }
 
   // 착수 흔적 — 손을 댔다는 증거.
+  if (task.issueInProgress) return { key: "inProgress", reason: "issue" };
   if (task.hasStepProgress) return { key: "inProgress", reason: "step" };
   if (task.inMyDay) return { key: "inProgress", reason: "myday" };
 
@@ -182,6 +189,7 @@ function toReportTask(t: SourceTask, edits: ReportEdits, reason: SectionReason):
   return {
     id: t.id,
     seq: t.seq,
+    ref: t.ref ?? null,
     title: t.title,
     listId: t.listId,
     path: t.groupName ? `${t.groupName} › ${t.listName}` : t.listName,

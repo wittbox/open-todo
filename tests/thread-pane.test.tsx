@@ -44,7 +44,7 @@ function msg(id: string, body: string, over: Partial<MessageItem> = {}): Message
   return {
     id, seq: 1, parentId: null, author: { id: "u1", name: "윤재원", avatarColor: "#0f7b6c" }, body,
     createdAt: "2026-09-16T01:00:00.000Z", updatedAt: "2026-09-16T01:00:00.000Z", editedAt: null, deletedAt: null,
-    pinnedAt: null, pinnedByName: null, replyCount: 0, lastReplyAt: null, mentionsAll: false, mentions: [], files: [],
+    pinnedAt: null, pinnedByName: null, replyCount: 0, lastReplyAt: null, mentionsAll: false, mentions: [], files: [], issues: [],
     isMine: false, canDelete: false, ...over,
   };
 }

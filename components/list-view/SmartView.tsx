@@ -31,6 +31,7 @@ export function SmartView({
   addTo,
   addOptions,
   meId,
+  extra,
 }: {
   colors: PaneColors;
   title: string;
@@ -46,6 +47,8 @@ export function SmartView({
   addOptions?: { important?: boolean; myDay?: boolean; dueDate?: string };
   /** 담당자가 본인인 작업에는 이름을 붙이지 않기 위해 넘긴다. */
   meId?: string;
+  /** 작업 묶음 아래, 완료됨 위에 끼울 것 — 나에게 할당됨의 이슈 묶음 */
+  extra?: React.ReactNode;
 }) {
   const t = useTranslations("tasks");
   const router = useRouter();
@@ -155,7 +158,7 @@ export function SmartView({
         </div>
       )}
 
-      {!hasAny && done.length === 0 && (
+      {!hasAny && done.length === 0 && !extra && (
         <div className="grid h-full place-items-center px-10 text-center">
           <div className="text-sm leading-relaxed text-[var(--on)]">{emptyMessage}</div>
         </div>
@@ -173,6 +176,8 @@ export function SmartView({
           </div>
         ),
       )}
+
+      {extra}
 
       {done.length > 0 && (
         <>

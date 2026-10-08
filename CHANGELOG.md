@@ -43,6 +43,33 @@
   of a new tab: fitted to the screen, arrows / arrow keys / swipe between the photos of the same task or
   message, click for actual size, with open-in-new-tab and download. Other files still download.
 
+### Issue tracking in projects
+- A project admin can turn on **issues** in project settings and pick a short key (`BUG` → `BUG-23`;
+  2–6 capital letters or digits, starting with a letter; fixed once the first issue exists). The project
+  header then shows **Messages | Issues** tabs. Turning issues off hides the tab and keeps the issues.
+- Issues have a title, a body (pre-filled from the project's template — "Steps to reproduce / Expected /
+  Actual / Environment" by default), status **Open → In progress → Resolved → Closed**, priority
+  (Urgent / High / Normal / Low), an assignee, labels (Bug / Improvement / Question to start, with colours),
+  a due date and attachments (paste a screenshot with Ctrl+V). The default template and label names are
+  written in the language of the admin who turns issues on.
+- The issue list filters by state, assignee, label and priority and searches title, body and `BUG-23`.
+  A **board** view has one column per status (closed: last 7 days) — drag a card to change its status.
+- The issue pane edits every field in place and keeps an activity log (status, priority, assignee, labels,
+  due date, title) interleaved with comments; comments take @mentions and files. A resolved issue asks its
+  reporter to **confirm and close** or **reopen**. `/i/BUG-23` links straight to an issue; `BUG-23` in a
+  message, comment or issue body becomes a link (only that project's key, so `ISO-9001` stays text).
+- Notifications: assigned to you, status changes, comments and mentions — to the reporter, the assignee
+  and anyone **watching** the issue.
+- **Message → issue**: "Make an issue" in a message's ⋯ menu opens a new issue pre-filled from it (its
+  files come along); the message then links to the issue.
+- Issues assigned to you that are open or in progress are **mirrored, not copied**: they show under your
+  tasks in "Assigned to me" (and count in its sidebar number) and, when due in the visible weeks, as purple
+  flag chips on the calendar. They're completed once, in the issue.
+- **Weekly report**: your issues land in the same sections as tasks — resolved this week is done (closing is
+  the reporter's part), in progress is in progress — listed as `BUG-23` and grouped per project
+  ("# Project (issues)" in the scope picker).
+- **Migration** `20261008000000_issues` adds the issue tables and project columns; no existing data changes.
+
 ## 0.1.0 — 2026-09-21
 
 First public release.

@@ -262,3 +262,25 @@ describe("소유자와 담당자", () => {
     expect(groups[0].tasks).toHaveLength(2);
   });
 });
+
+describe("이슈", () => {
+  const issue = (over: Partial<SourceTask>): SourceTask => ({
+    ...base, id: "issue:i1", seq: 23, ref: "BUG-23", listId: "issues:p1", listName: "이슈", groupName: "버그 리포트", ...over,
+  });
+
+  it("진행 중인 이슈는 착수 흔적 — '이슈 진행 중' 으로 진행 중 구간", () => {
+    expect(classify(issue({ issueInProgress: true }), WEEK)).toEqual({ key: "inProgress", reason: "issue" });
+  });
+
+  it("이번 주에 해결한 이슈는 완료, 번호는 BUG-23 으로 실린다", () => {
+    const r = buildReport([issue({ isCompleted: true, completedAt: "2026-08-12T03:00:00.000Z" })], WEEK, noEdits);
+    const done = r.sections.find((x) => x.key === "done")!;
+    expect(done.groups[0].path).toBe("버그 리포트 › 이슈");
+    expect(done.groups[0].tasks[0]).toMatchObject({ ref: "BUG-23", seq: 23 });
+  });
+
+  it("작업에는 ref 가 없다 — #번호로 그린다", () => {
+    const r = buildReport([{ ...base, isCompleted: true, completedAt: "2026-08-12T03:00:00.000Z" }], WEEK, noEdits);
+    expect(r.sections.find((x) => x.key === "done")!.groups[0].tasks[0].ref).toBeNull();
+  });
+});

@@ -10,6 +10,7 @@ import { dateOnlyToString } from "@/lib/date";
 import { CALENDAR_PREFS_COOKIE, parseFrom, parsePrefs, projectRepeats, weekGrid } from "@/lib/calendar";
 import { CalendarView } from "@/components/calendar/CalendarView";
 import { DetailPane } from "@/components/detail-pane/DetailPane";
+import { listMyIssues } from "@/lib/queries/issues";
 import { requestToday } from "@/lib/prefs";
 import { holidayRegion } from "@/lib/holidays";
 
@@ -34,7 +35,12 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
   const grid = weekGrid(parseFrom(q, today));
   const from = dateOnlyToString(grid.start);
 
-  const [data, jar] = await Promise.all([getCalendarView(userId, grid.start, grid.end, today), cookies()]);
+  const [data, jar, issues] = await Promise.all([
+    getCalendarView(userId, grid.start, grid.end, today),
+    cookies(),
+    // 내가 맡은 열린 이슈 중 기한이 보이는 5주 안인 것
+    listMyIssues(userId, { from: grid.start, to: grid.end }),
+  ]);
   const prefs = parsePrefs(jar.get(CALENDAR_PREFS_COOKIE)?.value);
   const ghosts = projectRepeats([...data.tasks, ...data.repeatSources], grid.start, grid.end, today);
 
@@ -57,6 +63,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
         lists={data.lists}
         prefs={prefs}
         meId={userId}
+        issues={issues}
         holidays={holidayRegion()}
       />
       {detail && detailRole && (

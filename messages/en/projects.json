@@ -67,7 +67,8 @@
     "edit": "Edit",
     "delete": "Delete",
     "mentionAll": "everyone",
-    "mentionMe": "me"
+    "mentionMe": "me",
+    "makeIssue": "Make an issue"
   },
   "editor": {
     "label": "Edit message",

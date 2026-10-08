@@ -29,6 +29,7 @@ export function ThreadPane({
   members,
   meId,
   meName,
+  issueKey,
   readOnly,
 }: {
   projectId: string;
@@ -38,6 +39,7 @@ export function ThreadPane({
   members?: MentionCandidate[];
   meId: string;
   meName?: string;
+  issueKey?: string | null;
   readOnly: boolean;
 }) {
   const t = useTranslations("projects");
@@ -133,6 +135,7 @@ export function ThreadPane({
             m={parent}
             meId={meId}
             meName={meName}
+            issueKey={issueKey}
             readOnly={readOnly}
             inThread
             onEdit={(id, body) => act(() => editMessage(id, body))}
@@ -157,6 +160,7 @@ export function ThreadPane({
             m={m}
             meId={meId}
             meName={meName}
+            issueKey={issueKey}
             readOnly={readOnly}
             inThread
             highlighted={highlightId === m.id}

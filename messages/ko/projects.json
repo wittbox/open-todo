@@ -67,7 +67,8 @@
     "edit": "수정",
     "delete": "삭제",
     "mentionAll": "전체",
-    "mentionMe": "나"
+    "mentionMe": "나",
+    "makeIssue": "이슈로 만들기"
   },
   "editor": {
     "label": "메시지 고치기",

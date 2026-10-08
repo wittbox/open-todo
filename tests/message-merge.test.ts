@@ -12,7 +12,7 @@ function m(id: string, over: Partial<MessageItem> = {}): MessageItem {
   return {
     id, seq: 1, parentId: null, author: null, body: id, createdAt: "2026-09-16T01:00:00.000Z",
     updatedAt: "2026-09-16T01:00:00.000Z", editedAt: null, deletedAt: null, pinnedAt: null, pinnedByName: null,
-    replyCount: 0, lastReplyAt: null, mentionsAll: false, mentions: [], files: [], isMine: false, canDelete: false,
+    replyCount: 0, lastReplyAt: null, mentionsAll: false, mentions: [], files: [], issues: [], isMine: false, canDelete: false,
     ...over,
   };
 }

@@ -5,8 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Icon } from "@/components/icons";
 import { MessageComposer } from "@/components/project/MessageComposer";
 import { MessageRow } from "@/components/project/MessageRow";
-import { ProjectMembersDialog } from "@/components/project/ProjectMembersDialog";
-import { ProjectSettingsDialog } from "@/components/project/ProjectSettingsDialog";
+import { ProjectHeader } from "@/components/project/ProjectHeader";
+import { NewIssueDialog } from "@/components/issues/NewIssueDialog";
 import { usePoll } from "@/components/project/usePoll";
 import { deleteMessage, editMessage, pinMessage } from "@/lib/actions/message";
 import { markProjectRead } from "@/lib/actions/project";
@@ -34,6 +34,7 @@ const POLL_MS = 5000;
  */
 export function ProjectView({ initial, meId }: { initial: Member; meId: string }) {
   const t = useTranslations("projects");
+  const ti = useTranslations("issues");
   const locale = useLocale();
   // 순수 함수(lib/projects/format.ts)는 열쇠를 문자열로 받는다 — 거기서는 키 타입을 알 수 없다.
   const tx = t as unknown as Translate;
@@ -42,7 +43,6 @@ export function ProjectView({ initial, meId }: { initial: Member; meId: string }
   const params = useSearchParams();
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<null | "members" | "settings">(null);
 
   const [byId, setById] = useState(() => new Map(initial.messages.map((m) => [m.id, m])));
   const [hasMore, setHasMore] = useState(initial.hasMore);
@@ -58,6 +58,9 @@ export function ProjectView({ initial, meId }: { initial: Member; meId: string }
   const knownIds = useRef(new Set(initial.messages.map((m) => m.id)));
   const readOnly = initial.archivedAt != null;
   const highlightId = params.get("msg");
+  // ⋯ › 이슈로 만들기 — 이슈를 켠 프로젝트에서만
+  const [issueFrom, setIssueFrom] = useState<MessageItem | null>(null);
+  const canMakeIssue = initial.issues.enabled && !readOnly;
 
   /* ── 받아서 합치기 ── */
 
@@ -209,33 +212,7 @@ export function ProjectView({ initial, meId }: { initial: Member; meId: string }
 
   return (
     <section className="flex min-w-0 flex-1 flex-col bg-pane-bg">
-      <header className="flex items-center gap-2.5 border-b border-[#e1dfdd] bg-white px-4 py-2.5 md:px-6 md:py-3.5">
-        <Icon name={initial.isPublic ? "hash" : "lock"} size={18} className="shrink-0 text-ink-2" />
-        <h1 className="truncate text-[18px] font-semibold md:text-[20px]">{initial.name}</h1>
-        {/* 폰에서는 목적을 뺀다 — 한 줄에 이름·멤버·설정이 겨우 들어간다. */}
-        <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">
-          <span className="hidden md:inline">{initial.purpose}</span>
-        </span>
-        {readOnly && <span className="rounded-full bg-[#fff4ce] px-2 py-0.5 text-[11px] text-[#7a5a00]">{t("header.archived")}</span>}
-        <button
-          type="button"
-          onClick={() => setDialog("members")}
-          className="inline-flex h-7 items-center gap-1.5 rounded border border-[#e1dfdd] px-2.5 text-[12.5px] text-ink-2 hover:bg-side-hover"
-        >
-          <Icon name="person" size={14} />
-          {t("header.members", { count: initial.members.length })}
-        </button>
-        {initial.myRole === "ADMIN" && (
-          <button
-            type="button"
-            onClick={() => setDialog("settings")}
-            aria-label={t("settings.title")}
-            className="grid h-7 w-7 place-items-center rounded border border-[#e1dfdd] text-ink-2 hover:bg-side-hover"
-          >
-            <Icon name="gear" size={15} />
-          </button>
-        )}
-      </header>
+      <ProjectHeader project={initial} tab="messages" />
 
       {pinned.length > 0 && (
         <div className="border-b border-[#f2e2a8] bg-[#fff8e6] text-[12.5px] text-[#7a5a00]">
@@ -324,6 +301,8 @@ export function ProjectView({ initial, meId }: { initial: Member; meId: string }
                 m={m}
                 meId={meId}
                 meName={initial.members.find((x) => x.isMe)?.name}
+                issueKey={initial.issues.enabled ? initial.issues.key : null}
+                onMakeIssue={canMakeIssue ? setIssueFrom : undefined}
                 readOnly={readOnly}
                 highlighted={highlightId === m.id}
                 onEdit={(id, body) => act(() => editMessage(id, body))}
@@ -370,28 +349,38 @@ export function ProjectView({ initial, meId }: { initial: Member; meId: string }
         onSend={send}
       />
 
-      {dialog === "members" && (
-        <ProjectMembersDialog
+      {issueFrom && (
+        <NewIssueDialog
           projectId={initial.id}
+          projectName={initial.name}
+          template={initial.issues.template}
+          labels={initial.issues.labels}
           members={initial.members}
-          myRole={initial.myRole}
-          isOwner={initial.isOwner}
-          readOnly={readOnly}
-          onClose={() => {
-            setDialog(null);
-            router.refresh();
-          }}
-        />
-      )}
-      {dialog === "settings" && (
-        <ProjectSettingsDialog
-          project={initial}
-          onClose={() => {
-            setDialog(null);
-            router.refresh();
+          from={issueDraftFrom(issueFrom, {
+            all: t("message.mentionAll"),
+            unknown: ti("pane.unknown"),
+            from: (author) => ti("new.fromMessage", { author }),
+          })}
+          onClose={() => setIssueFrom(null)}
+          onCreated={(number) => {
+            setIssueFrom(null);
+            router.push(`/projects/${initial.id}?tab=issues&issue=${number}`);
           }}
         />
       )}
     </section>
   );
+}
+
+/**
+ * 메시지 → 이슈 초안. 제목은 첫 줄(멘션은 이름으로, 80자), 본문은 메시지 그대로에 어디서 왔는지 한 줄.
+ * 멘션 토큰은 본문에 남겨 둔다 — 이슈에서도 그 사람을 부른 것으로 이어진다.
+ */
+function issueDraftFrom(m: MessageItem, words: { all: string; unknown: string; from: (author: string) => string }) {
+  const names = new Map(m.mentions.map((x) => [x.userId, x.name]));
+  const plain = m.body.replace(/<@(all|[a-z0-9]{20,32})>/g, (_, id: string) => `@${id === "all" ? words.all : (names.get(id) ?? words.unknown)}`);
+  const firstLine = plain.split("\n").map((l) => l.trim()).find(Boolean) ?? "";
+  const title = firstLine.length > 80 ? `${firstLine.slice(0, 79)}…` : firstLine;
+  const body = `${m.body.trim()}\n\n${words.from(m.author?.name ?? words.unknown)}`;
+  return { messageId: m.id, title, body, fileCount: m.files.length };
 }

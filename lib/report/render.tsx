@@ -136,9 +136,9 @@ function ReportRow({
           #3 처럼 짧은 번호 뒤가 벌어지지 않는다. */}
       <span className="w-10 shrink-0 text-right font-mono text-[12.5px] text-link">
         {baseUrl ? (
-          <a href={`${baseUrl}/t/${t.seq}`} className="hover:underline">#{t.seq}</a>
+          <a href={t.ref ? `${baseUrl}/i/${t.ref}` : `${baseUrl}/t/${t.seq}`} className="hover:underline">{t.ref ?? `#${t.seq}`}</a>
         ) : (
-          <>#{t.seq}</>
+          <>{t.ref ?? `#${t.seq}`}</>
         )}
       </span>
       <span className="min-w-0 flex-1 text-sm">

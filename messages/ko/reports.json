@@ -13,7 +13,8 @@
     "future": "이후 기한",
     "overdue": "기한 지남",
     "new": "이번 주 신규",
-    "manual": "직접 옮김"
+    "manual": "직접 옮김",
+    "issue": "이슈 진행 중"
   },
   "defaultTitle": "주간업무보고 - {who} {date}",
   "page": {

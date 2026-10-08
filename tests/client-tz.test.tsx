@@ -66,7 +66,7 @@ describe("메시지 시각", () => {
     author: { id: "u1", name: "홍길동", avatarColor: "#c2185b" },
     body: "안녕하세요", mentions: [], mentionsAll: false, editedAt: null, deletedAt: null, pinnedAt: null,
     createdAt: "2026-03-08T04:30:00.000Z", updatedAt: "2026-03-08T04:30:00.000Z",
-    files: [], replyCount: 0, lastReplyAt: null, isMine: false, canDelete: false,
+    files: [], issues: [], replyCount: 0, lastReplyAt: null, isMine: false, canDelete: false,
   } as unknown as MessageItem;
   const show = () => render(<MessageRow m={m} meId="u2" readOnly onEdit={() => {}} onDelete={() => {}} />);
 

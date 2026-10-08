@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { issueRef } from "@/lib/issues/format";
 import { getAccessibleLists } from "@/lib/queries/tasks";
 import { dateOnlyFromString, dateOnlyToString, dayRange } from "@/lib/date";
 import { toDateString } from "@/lib/queries/list";
@@ -90,7 +91,7 @@ export async function getReportSource(
 ): Promise<{ tasks: SourceTask[]; groups: GroupOption[] }> {
   const lists = await getAccessibleLists(userId);
   const listIds = lists.map((l) => l.id);
-  if (listIds.length === 0) return { tasks: [], groups: [] };
+  // 목록이 하나도 없어도 이슈는 있을 수 있다 — 일찍 돌아가지 않는다(빈 in 조건은 아무것도 찾지 않는다).
 
   const thisWeek = dayRange(weekStart, 7, await getRequestTimeZone());
   const weekStartStr = dateOnlyToString(weekStart);
@@ -171,12 +172,74 @@ export async function getReportSource(
     .map(([id, name]) => ({ id, name }))
     .sort((a, b) => a.name.localeCompare(b.name, "ko"));
 
-  if (hasUngrouped) {
-    const t = translatorFor((await getRequestPrefs()).locale);
-    groups.push({ id: UNGROUPED_SCOPE_ID, name: t("reports.ungrouped") });
+  const { locale } = await getRequestPrefs();
+  const t = translatorFor(locale);
+  if (hasUngrouped) groups.push({ id: UNGROUPED_SCOPE_ID, name: t("reports.ungrouped") });
+
+  // 나에게 맡겨진 이슈도 같은 구간(완료·진행 중·예정)에 싣는다. 범위 고르기에는 프로젝트마다 한 칸.
+  const issues = await getReportIssues(userId, weekStart, t("issues.defaults.reportList"));
+  const issueScopes = new Map<string, string>();
+  for (const i of issues) {
+    issueScopes.set(i.groupId as string, t("issues.defaults.reportScope", { project: i.groupName ?? "" }));
+    if (inScope(i.groupId ?? null)) tasks.push(i);
   }
+  groups.push(...[...issueScopes.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, locale)));
 
   return { tasks, groups };
+}
+
+/** 범위 고르기에서 이슈 프로젝트를 가리키는 열쇠의 앞부분 */
+export const ISSUE_SCOPE_PREFIX = "__issues__:";
+
+/**
+ * 보고서에 실을 내 이슈 — 맡은 사람이 나이고, 이슈를 켠(멤버인) 프로젝트의 것.
+ * 작업과 같은 잣대로 고른다: 이번 주에 해결·닫았거나, 아직 열려 있고 이번 주에 손댔거나 기한이 이번 주 이후거나 이번 주에 생긴 것.
+ * 해결됨은 '완료'(고친 것이 내 일이다) — 확인해 닫는 것은 보고자의 일이다.
+ */
+async function getReportIssues(userId: string, weekStart: Date, listName: string): Promise<SourceTask[]> {
+  const thisWeek = dayRange(weekStart, 7, await getRequestTimeZone());
+  const inWeek = { gte: thisWeek.from, lt: thisWeek.to };
+  const rows = await prisma.issue.findMany({
+    where: {
+      assigneeId: userId,
+      project: { issuesEnabled: true, members: { some: { userId } } },
+      OR: [
+        { resolvedAt: inWeek },
+        { status: "CLOSED", closedAt: inWeek, resolvedAt: null },
+        {
+          status: { in: ["OPEN", "IN_PROGRESS"] },
+          OR: [{ dueDate: { gte: dateOnlyFromString(dateOnlyToString(weekStart)) } }, { createdAt: inWeek }, { updatedAt: inWeek }],
+        },
+      ],
+    },
+    select: {
+      id: true, number: true, title: true, status: true, dueDate: true, createdAt: true, updatedAt: true,
+      resolvedAt: true, closedAt: true,
+      project: { select: { id: true, name: true, issueKey: true } },
+    },
+  });
+  return rows.map((r) => {
+    const done = r.status === "RESOLVED" || r.status === "CLOSED";
+    return {
+      id: `issue:${r.id}`,
+      seq: r.number,
+      ref: issueRef(r.project.issueKey, r.number),
+      title: r.title,
+      listId: `issues:${r.project.id}`,
+      listName,
+      groupName: r.project.name,
+      groupId: `${ISSUE_SCOPE_PREFIX}${r.project.id}`,
+      isCompleted: done,
+      completedAt: done ? (r.resolvedAt ?? r.closedAt)?.toISOString() ?? null : null,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+      dueDate: toDateString(r.dueDate),
+      steps: [],
+      issueInProgress: r.status === "IN_PROGRESS",
+      ownerName: null,
+      assigneeName: null,
+    };
+  });
 }
 
 export type ReportListItem = {

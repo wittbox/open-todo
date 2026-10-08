@@ -25,6 +25,10 @@ export type NotifyInput = {
   /** 프로젝트에 관한 알림(멘션·초대)만 채운다 */
   projectId?: string | null;
   messageId?: string | null;
+  /** 이슈에 관한 알림. projectId 도 함께 채운다(멤버 확인·프로젝트 삭제 때 함께 사라짐). */
+  issueId?: string | null;
+  /** 댓글·멘션처럼 이벤트마다 한 번 알릴 때 */
+  issueEventId?: string | null;
   actorId?: string | null;
   /** 하루에 한 번만 알릴 때 쓰는 날짜 열쇠. 기본은 오늘. */
   dayKey?: string;
@@ -51,6 +55,8 @@ export async function notify(input: NotifyInput): Promise<void> {
       reportId: input.reportId ?? null,
       projectId: input.projectId ?? null,
       messageId: input.messageId ?? null,
+      issueId: input.issueId ?? null,
+      issueEventId: input.issueEventId ?? null,
       dayKey,
     },
     select: { id: true },
@@ -66,6 +72,8 @@ export async function notify(input: NotifyInput): Promise<void> {
       reportId: input.reportId ?? null,
       projectId: input.projectId ?? null,
       messageId: input.messageId ?? null,
+      issueId: input.issueId ?? null,
+      issueEventId: input.issueEventId ?? null,
       actorId: input.actorId ?? null,
       dayKey,
     },

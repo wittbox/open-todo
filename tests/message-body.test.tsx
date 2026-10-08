@@ -57,3 +57,27 @@ describe("메시지 본문", () => {
     expect(container.textContent).not.toContain("<@");
   });
 });
+
+describe("이슈 번호 링크", () => {
+  const links = (body: string, issueKey: string | null) => {
+    const { container } = render(<MessageBody body={body} mentions={[]} meId="me00000000000000000000" issueKey={issueKey} />);
+    return [...container.querySelectorAll("a")].map((a) => `${a.getAttribute("href")} ${a.textContent}`);
+  };
+
+  it("이 프로젝트 약어의 번호만 링크 — 앞뒤 글자·괄호·줄바꿈 사이에서도", () => {
+    expect(links("BUG-23 과 (BUG-7), 그리고\nBUG-108.", "BUG")).toEqual(["/i/BUG-23 BUG-23", "/i/BUG-7 BUG-7", "/i/BUG-108 BUG-108"]);
+  });
+
+  it("다른 약어·규격 번호·붙은 글자는 링크가 아니다", () => {
+    expect(links("ISO-9001 · ABUG-1 · BUG-1A · BUG-12345678901 · bug-3", "BUG")).toEqual([]);
+    expect(links("BUG-23", null)).toEqual([]);
+  });
+
+  it("작업 #번호·주소와 섞여도 각각", () => {
+    expect(links("#330 은 BUG-2 때문. https://x.test/a", "BUG")).toEqual([
+      "/t/330 #330",
+      "/i/BUG-2 BUG-2",
+      "https://x.test/a https://x.test/a",
+    ]);
+  });
+});

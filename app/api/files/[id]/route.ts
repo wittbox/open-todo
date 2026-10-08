@@ -26,14 +26,18 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/files/[id]">) {
       name: true, mimeType: true, storageKey: true, size: true,
       task: { select: { listId: true } },
       message: { select: { projectId: true } },
+      issue: { select: { projectId: true } },
+      issueEvent: { select: { issue: { select: { projectId: true } } } },
     },
   });
   // 없는 파일과 권한 없는 파일을 구분하지 않는다 — id 를 훑어 존재를 알아낼 수 없게.
   if (!file) return new NextResponse(null, { status: 404 });
+  // 메시지·이슈 본문·이슈 댓글에 붙은 파일은 그 프로젝트의 멤버만 받는다.
+  const projectId = file.message?.projectId ?? file.issue?.projectId ?? file.issueEvent?.issue.projectId ?? null;
   const role = file.task
     ? await getListRole(userId, file.task.listId)
-    : file.message
-      ? await getProjectRole(userId, file.message.projectId)
+    : projectId
+      ? await getProjectRole(userId, projectId)
       : null;
   if (!role) return new NextResponse(null, { status: 404 });
 

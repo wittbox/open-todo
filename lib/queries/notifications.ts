@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import type { NotificationKind } from "@/app/generated/prisma/enums";
+import type { IssueStatus, NotificationKind } from "@/app/generated/prisma/enums";
+import { issueRef } from "@/lib/issues/format";
 
 /**
  * 알림 목록.
@@ -23,6 +24,12 @@ export type NotificationItem = {
   projectId: string | null;
   projectName: string | null;
   messageId: string | null;
+  /** 이슈에 관한 알림만 — 번호(BUG-23)·제목, 상태 알림이면 바뀐 상태, 내가 올린 이슈인지 */
+  issueNumber: number | null;
+  issueRef: string | null;
+  issueTitle: string | null;
+  issueStatusTo: IssueStatus | null;
+  issueMine: boolean;
   actorName: string | null;
   isRead: boolean;
   createdAt: string;
@@ -39,7 +46,8 @@ export async function listNotifications(userId: string): Promise<NotificationIte
     orderBy: { createdAt: "desc" },
     take: 100,
     select: {
-      id: true, kind: true, taskId: true, listId: true, reportId: true, projectId: true, messageId: true,
+      id: true, kind: true, taskId: true, listId: true, reportId: true, projectId: true, messageId: true, issueEventId: true,
+      issue: { select: { number: true, title: true, reporterId: true, project: { select: { issueKey: true } } } },
       readAt: true, createdAt: true,
       task: { select: { title: true, seq: true } },
       report: { select: { title: true } },
@@ -55,6 +63,14 @@ export async function listNotifications(userId: string): Promise<NotificationIte
   });
   const listName = new Map(lists.map((l) => [l.id, l.name]));
 
+  // 상태 알림은 "무엇으로 바뀌었나" 를 그 기록에서 읽는다(지금 상태가 아니라 알릴 때의 변화).
+  const eventIds = rows.filter((r) => r.kind === "ISSUE_STATUS" && r.issueEventId).map((r) => r.issueEventId as string);
+  const statusTo = new Map(
+    eventIds.length
+      ? (await prisma.issueEvent.findMany({ where: { id: { in: eventIds } }, select: { id: true, toValue: true } })).map((e) => [e.id, e.toValue])
+      : [],
+  );
+
   return rows.map((r) => ({
     id: r.id,
     kind: r.kind,
@@ -68,6 +84,11 @@ export async function listNotifications(userId: string): Promise<NotificationIte
     projectId: r.projectId,
     projectName: r.project?.name ?? null,
     messageId: r.messageId,
+    issueNumber: r.issue?.number ?? null,
+    issueRef: r.issue ? issueRef(r.issue.project.issueKey, r.issue.number) : null,
+    issueTitle: r.issue?.title ?? null,
+    issueStatusTo: (r.issueEventId ? (statusTo.get(r.issueEventId) as IssueStatus | undefined) : undefined) ?? null,
+    issueMine: r.issue?.reporterId === userId,
     actorName: r.actor?.name ?? null,
     isRead: r.readAt != null,
     createdAt: r.createdAt.toISOString(),

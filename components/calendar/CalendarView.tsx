@@ -46,6 +46,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { DATE_ONLY } from "@/lib/format";
 import { holidayName, type HolidayRegion } from "@/lib/holidays";
 import { listPath } from "@/lib/list-path";
+import type { MyIssue } from "@/lib/queries/issues";
 import { SMART_VIEW_THEMES } from "@/lib/theme";
 import type { TaskItem } from "@/lib/queries/list";
 import { openPanel, PHONE_QUERY } from "@/components/shell/shell";
@@ -121,6 +122,7 @@ export function CalendarView({
   prefs: initialPrefs,
   meId,
   holidays = "kr",
+  issues = [],
 }: {
   /** 첫 주의 일요일 "YYYY-MM-DD" — 5주가 여기서 시작한다 */
   from: string;
@@ -140,6 +142,8 @@ export function CalendarView({
   lists: CalendarList[];
   prefs: CalendarPrefs;
   meId: string;
+  /** 내가 맡은 열린 이슈 중 기한이 보이는 칸 안인 것 — 작업과 나란히 비춰 보인다 */
+  issues?: MyIssue[];
 }) {
   const t = useTranslations("calendar");
   const format = useFormatter();
@@ -289,6 +293,17 @@ export function CalendarView({
   const findTask = (id: string) => patched.find((x) => x.id === id) ?? overduePatched.find((x) => x.id === id);
   const dragTask = dragId ? (findTask(dragId) ?? null) : null;
 
+  const issuesByDate = useMemo(() => {
+    const m = new Map<string, MyIssue[]>();
+    for (const i of issues) {
+      if (!i.dueDate) continue;
+      const list = m.get(i.dueDate) ?? [];
+      list.push(i);
+      m.set(i.dueDate, list);
+    }
+    return m;
+  }, [issues]);
+
   /* ── 그리기 ── */
 
   function chipProps(e: Entry): ChipProps {
@@ -422,11 +437,12 @@ export function CalendarView({
                 today={today}
                 selected={day}
                 entriesOf={(date) => byDate.get(date) ?? []}
+                issueCountOf={(date) => issuesByDate.get(date)?.length ?? 0}
                 colorOf={(t) => listById.get(t.listId)?.color ?? "#8a8886"}
                 onPick={setDay}
                 holidays={holidays}
               />
-              <PhoneDay date={day} today={today} count={(byDate.get(day) ?? []).length}>
+              <PhoneDay date={day} today={today} count={(byDate.get(day) ?? []).length + (issuesByDate.get(day)?.length ?? 0)}>
                 {(byDate.get(day) ?? []).map((e) =>
                   e.ghost ? (
                     <GhostRow
@@ -449,6 +465,9 @@ export function CalendarView({
                     />
                   ),
                 )}
+                {(issuesByDate.get(day) ?? []).map((i) => (
+                  <IssueRow key={i.id} issue={i} />
+                ))}
               </PhoneDay>
               {canAdd && (
                 <button
@@ -492,6 +511,7 @@ export function CalendarView({
                 date={date}
                 isToday={date === today}
                 entries={byDate.get(date) ?? []}
+                issues={issuesByDate.get(date) ?? []}
                 slots={slots}
                 canAdd={canAdd}
                 onAdd={(rect) => setPop({ kind: "add", date, rect })}
@@ -535,6 +555,9 @@ export function CalendarView({
                   />
                 ),
               )}
+              {(issuesByDate.get(pop.date) ?? []).map((i) => (
+                <IssueRow key={i.id} issue={i} />
+              ))}
             </DayPopover>
           )}
 
@@ -585,6 +608,7 @@ function DayCell({
   date,
   isToday,
   entries,
+  issues,
   slots,
   canAdd,
   onAdd,
@@ -595,6 +619,8 @@ function DayCell({
   date: string;
   isToday: boolean;
   entries: Entry[];
+  /** 기한이 이날인 내 이슈 — 작업 칩 뒤에 깃발 칩으로 */
+  issues: MyIssue[];
   slots: number;
   canAdd: boolean;
   onAdd: (rect: DOMRect) => void;
@@ -613,9 +639,10 @@ function DayCell({
   const dateLabel = format.dateTime(d, DATE_ONLY);
   const day = d.getUTCDate();
 
-  // 넘치면 '+N개' 한 줄을 칩 한 칸 자리에 둔다.
-  const shown = entries.length > slots ? entries.slice(0, Math.max(1, slots - 1)) : entries;
-  const rest = entries.length - shown.length;
+  // 넘치면 '+N개' 한 줄을 칩 한 칸 자리에 둔다. 이슈 칩도 같은 칸 수를 나눠 쓴다(작업이 먼저).
+  const chips = [...entries.map(renderChip), ...issues.map((i) => <IssueChip key={i.id} issue={i} />)];
+  const shown = chips.length > slots ? chips.slice(0, Math.max(1, slots - 1)) : chips;
+  const rest = chips.length - shown.length;
   const rect = () => ref.current!.getBoundingClientRect();
 
   return (
@@ -671,7 +698,7 @@ function DayCell({
         {holiday && <span className="truncate text-[11px] text-danger">{holiday}</span>}
       </div>
 
-      {shown.map(renderChip)}
+      {shown}
 
       {rest > 0 && (
         <button
@@ -727,6 +754,7 @@ function PhoneMonth({
   today,
   selected,
   entriesOf,
+  issueCountOf,
   colorOf,
   onPick,
   holidays,
@@ -735,6 +763,8 @@ function PhoneMonth({
   today: string;
   selected: string;
   entriesOf: (date: string) => Entry[];
+  /** 이날 기한인 내 이슈 수 — 점으로 */
+  issueCountOf: (date: string) => number;
   colorOf: (t: TaskItem) => string;
   onPick: (date: string) => void;
   holidays: HolidayRegion;
@@ -807,6 +837,9 @@ function PhoneMonth({
                       />
                     );
                   })}
+                  {Array.from({ length: Math.max(0, Math.min(issueCountOf(date), 3 - Math.min(entries.length, 3))) }, (_, n) => (
+                    <i key={`issue-${n}`} data-dot="issue" className="h-[5px] w-[5px] rotate-45 bg-[#5c2e91]" />
+                  ))}
                 </span>
               </button>
             );
@@ -1432,5 +1465,50 @@ function FilterPopover({
         </button>
       )}
     </Popover>
+  );
+}
+
+/**
+ * 달력의 이슈 칩 — 작업 칩과 같은 크기, 왼쪽 띠는 보라, 깃발과 번호. 끌어 옮기거나 체크하지 않는다 —
+ * 기한·상태는 이슈 창에서 바꾼다. 누르면 그 프로젝트의 이슈 탭으로 간다.
+ */
+function IssueChip({ issue }: { issue: MyIssue }) {
+  const t = useTranslations("issues");
+  return (
+    <Link
+      href={issue.href}
+      data-chip=""
+      data-issue={issue.ref}
+      title={t("mine.chip", { ref: issue.ref, title: issue.title, project: issue.projectName, status: t(`status.${issue.status}`) })}
+      className="mx-1 mt-0.5 flex h-[21px] items-center gap-1 rounded-[3px] bg-white/90 pr-1.5 text-xs shadow-[0_0_0_1px_rgba(0,0,0,.045)]"
+      style={{ borderLeftColor: "#5c2e91", borderLeftStyle: "solid", borderLeftWidth: 3 }}
+    >
+      <Icon name="flag" size={11} className="ml-1 shrink-0 text-[#5c2e91]" />
+      <span className="shrink-0 font-mono text-[10.5px] text-[#5c2e91]">{issue.ref}</span>
+      <span className="truncate">{issue.title}</span>
+    </Link>
+  );
+}
+
+/** 폰 목록·'+N개' 창의 이슈 줄 */
+function IssueRow({ issue }: { issue: MyIssue }) {
+  const t = useTranslations("issues");
+  return (
+    <Link
+      href={issue.href}
+      data-issue-row={issue.ref}
+      className="mb-1 flex items-center gap-3 rounded bg-white/90 px-3 py-2.5 text-sm hover:bg-white"
+    >
+      <Icon name="flag" size={16} className="shrink-0 text-[#5c2e91]" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate">
+          <b className="mr-1.5 font-mono text-[12.5px] font-semibold text-[#5c2e91]">{issue.ref}</b>
+          {issue.title}
+        </span>
+        <span className="block truncate text-xs text-ink-2">
+          {t("mine.rowMeta", { project: issue.projectName, status: t(`status.${issue.status}`) })}
+        </span>
+      </span>
+    </Link>
   );
 }

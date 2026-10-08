@@ -70,6 +70,8 @@ const s = StyleSheet.create({
   row: { paddingVertical: 4, borderBottomWidth: 0.5, borderBottomColor: "#edebe9" },
   line: { flexDirection: "row", alignItems: "flex-start" },
   seq: { width: 38, textAlign: "right", paddingRight: 8, fontFamily: "Courier", fontSize: 9, color: "#2564cf", paddingTop: 1 },
+  // 이슈 번호(BUG-123)는 #330 보다 길다
+  ref: { width: 52, fontSize: 8 },
   taskTitle: { flex: 1, fontSize: 10.5 },
   right: { fontSize: 9, color: "#666666", paddingLeft: 8, paddingTop: 1 },
   steps: { marginLeft: 38, fontSize: 9, color: "#666666", marginTop: 2, lineHeight: 1.5 },
@@ -112,7 +114,7 @@ function Row({ t }: { t: ReportTask }) {
     // 한 줄이 쪽 경계에서 반으로 잘리지 않게 한다.
     <View style={s.row} wrap={false}>
       <View style={s.line}>
-        <Text style={s.seq}>#{t.seq}</Text>
+        <Text style={t.ref ? [s.seq, s.ref] : s.seq}>{t.ref ?? `#${t.seq}`}</Text>
         <Text style={s.taskTitle}>{t.title}</Text>
         {right ? <Text style={s.right}>{right}</Text> : null}
       </View>

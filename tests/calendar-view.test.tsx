@@ -73,6 +73,7 @@ function show(
     prefs: CalendarPrefs;
     weeks: string[][];
     from: string;
+    issues: import("@/lib/queries/issues").MyIssue[];
   }> = {},
 ) {
   return render(
@@ -443,5 +444,29 @@ describe("목록 경로 — 그룹 › 목록", () => {
     show();
     fireEvent.click(screen.getByRole("button", { name: /목록 전체/ }));
     expect(within(screen.getByRole("dialog", { name: "볼 목록" })).getByText("공장 › 제품 출하")).toBeTruthy();
+  });
+});
+
+describe("내 이슈", () => {
+  const issue = (n: number, dueDate: string) => ({
+    id: `i${n}`, ref: `BUG-${n}`, number: n, title: `이슈 ${n}`, status: "OPEN" as const, priority: "NORMAL" as const,
+    dueDate, projectId: "p1", projectName: "버그 리포트", href: `/projects/p1?tab=issues&issue=${n}`,
+  });
+
+  it("기한 날 칸에 깃발 칩 — 누르면 그 이슈로", () => {
+    show({ issues: [issue(23, "2026-09-15")] });
+    const chip = cell("2026-09-15").querySelector("[data-issue]") as HTMLAnchorElement;
+    expect(chip.textContent).toContain("BUG-23");
+    expect(chip.getAttribute("href")).toBe("/projects/p1?tab=issues&issue=23");
+  });
+
+  it("작업 칩과 칸 수를 나눠 쓴다 — 넘치면 '+N개' 에 이슈도 센다", () => {
+    show({
+      tasks: [task({ id: "a", title: "출고준비", dueDate: "2026-09-15" }), task({ id: "b", title: "보고", dueDate: "2026-09-15" })],
+      issues: [issue(1, "2026-09-15"), issue(2, "2026-09-15"), issue(3, "2026-09-15")],
+    });
+    // 재기 전 칸 수는 4 — 칩 5개면 3개 + '+2개'
+    expect(cell("2026-09-15").querySelectorAll("[data-chip]")).toHaveLength(3);
+    expect(cell("2026-09-15").textContent).toContain("2개");
   });
 });

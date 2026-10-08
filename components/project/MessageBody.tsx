@@ -11,6 +11,8 @@ import { useTranslations } from "next-intl";
  *  - #1042: 작업 링크. 앞이 글자·숫자면(코드#77) 아니다. 여기서 조회하지 않는다 —
  *    /t/1042 가 없음·권한 없음을 이미 처리한다.
  *  - http(s)://…: 링크. 새 창, rel 로 우리 창을 넘기지 않는다.
+ *  - BUG-23: 이슈 링크(/i/BUG-23) — `issueKey` 를 준 곳에서 그 약어만. 아무 "ABC-12" 나 링크로 만들면
+ *    ISO-9001 같은 규격 번호가 빈 화면으로 이어진다.
  */
 
 const TOKEN_RE = /<@(all|[a-z0-9]{20,32})>|(^|[^\p{L}\p{N}_#])#(\d{1,9})(?!\d)|https?:\/\/[^\s<>"']+/gu;
@@ -20,6 +22,7 @@ export function MessageBody({
   mentions,
   meId,
   meName,
+  issueKey,
   className,
 }: {
   body: string;
@@ -27,6 +30,8 @@ export function MessageBody({
   meId: string;
   /** 나를 부른 토큰에 붙일 이름. 없으면 "나". */
   meName?: string;
+  /** 이 약어의 이슈 번호(BUG-23)를 링크로 */
+  issueKey?: string | null;
   className?: string;
 }) {
   const t = useTranslations("projects");
@@ -81,7 +86,25 @@ export function MessageBody({
   pushText(body.slice(last));
 
   function pushText(t: string) {
-    if (t) parts.push(t);
+    if (!t) return;
+    if (!issueKey) {
+      parts.push(t);
+      return;
+    }
+    // 템플릿 문자열 안이라 역슬래시를 두 번 쓴다(`\p` 를 그대로 두면 "p" 가 된다).
+    const re = new RegExp(`(^|[^\\p{L}\\p{N}_-])(${issueKey}-(\\d{1,9}))(?![\\p{L}\\p{N}_])`, "gu");
+    let at = 0;
+    for (const m of t.matchAll(re)) {
+      const s = m.index + m[1].length;
+      if (s > at) parts.push(t.slice(at, s));
+      parts.push(
+        <Link key={key++} href={`/i/${m[2]}`} className="font-mono text-link hover:underline">
+          {m[2]}
+        </Link>,
+      );
+      at = s + m[2].length;
+    }
+    if (at < t.length) parts.push(t.slice(at));
   }
 
   return <div className={`whitespace-pre-wrap break-words text-[13.5px] leading-[1.55] ${className ?? ""}`}>{parts}</div>;

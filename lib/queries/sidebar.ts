@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { countMyIssues } from "@/lib/queries/issues";
 import { maxRole, ROLE_RANK, type Role } from "@/lib/permissions";
 import { sortByOrder } from "@/lib/ordering";
 import { arrangeShared, type SharedRow, type SharedTree } from "@/lib/shared-tree";
@@ -102,7 +103,7 @@ export async function getSidebarData(userId: string): Promise<SidebarData | null
   const groupIds = groups.map((g) => g.id);
 
   // 목록별 미완료 개수 + "이 목록에 나 말고 다른 사람도 있는지"를 각각 한 번에
-  const [openCounts, assignedCount, unreadCount, otherShares, projects] = await Promise.all([
+  const [openCounts, assignedTasks, unreadCount, otherShares, projects, assignedIssues] = await Promise.all([
     prisma.task.groupBy({
       by: ["listId"],
       where: { listId: { in: listIds }, isCompleted: false },
@@ -122,7 +123,10 @@ export async function getSidebarData(userId: string): Promise<SidebarData | null
       select: { subjectType: true, subjectId: true },
     }),
     listSidebarProjects(userId),
+    // 맡은 이슈(열림·진행 중)도 '나에게 할당됨' 숫자에 든다 — 그 화면에 함께 보인다.
+    countMyIssues(userId),
   ]);
+  const assignedCount = assignedTasks + assignedIssues;
 
   const countByList = new Map(openCounts.map((c) => [c.listId, c._count._all]));
   const sharedListIds = new Set(otherShares.filter((s) => s.subjectType === "LIST").map((s) => s.subjectId));

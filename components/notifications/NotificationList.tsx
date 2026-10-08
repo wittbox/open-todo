@@ -18,6 +18,7 @@ import { useFormatter, useTranslations } from "next-intl";
  */
 function useDescribe(): (n: NotificationItem) => React.ReactNode {
   const t = useTranslations("notifications");
+  const ti = useTranslations("issues");
   const bold = (chunks: React.ReactNode) => <b className="font-semibold">{chunks}</b>;
   // 알림 종류가 곧 열쇠라서 키를 문자열로 만든다 — next-intl 의 좁은 키 타입만 비켜 간다.
   const rich = t.rich as unknown as (key: string, values: Record<string, unknown>) => React.ReactNode;
@@ -29,6 +30,11 @@ function useDescribe(): (n: NotificationItem) => React.ReactNode {
       project: n.projectName ?? t("fallback.project"),
       report: n.reportTitle ?? t("fallback.report"),
       actor: n.actorName ?? t("fallback.someone"),
+      issue: n.issueRef ?? t("fallback.issue"),
+      title: n.issueTitle ?? "",
+      status: n.issueStatusTo ? ti(`status.${n.issueStatusTo}`) : t("fallback.status"),
+      mine: n.issueMine ? "yes" : "no",
+      confirm: n.issueMine && n.issueStatusTo === "RESOLVED" ? "yes" : "no",
     });
 }
 
@@ -65,7 +71,8 @@ export function NotificationList({
     startTransition(async () => {
       if (!n.isRead) await markNotificationRead(n.id);
       // 프로젝트 분기가 먼저다 — 멘션 알림에는 listId 가 없지만, 순서를 뒤에 두면 규칙이 겹칠 때 엉킨다.
-      if (n.projectId) router.push(`/projects/${n.projectId}${n.messageId ? `?msg=${n.messageId}` : ""}`);
+      if (n.projectId && n.issueNumber != null) router.push(`/projects/${n.projectId}?tab=issues&issue=${n.issueNumber}`);
+      else if (n.projectId) router.push(`/projects/${n.projectId}${n.messageId ? `?msg=${n.messageId}` : ""}`);
       else if (n.reportId) router.push(`/reports/${n.reportId}`);
       else if (n.taskId && n.listId) router.push(`/list/${n.listId}?task=${n.taskId}`);
       else if (n.listId) router.push(`/list/${n.listId}`);

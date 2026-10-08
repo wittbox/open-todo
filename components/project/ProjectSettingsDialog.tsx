@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { BTN_CLASS, Dialog, INPUT_CLASS, PRIMARY_CLASS } from "@/components/project/Dialog";
 import { deleteProject, setProjectArchived, transferOwnership, updateProject } from "@/lib/actions/project";
+import { updateIssueSettingsAction } from "@/lib/actions/issue";
+import { IssueSettingsSection, type IssueSettingsDraft } from "@/components/project/IssueSettingsSection";
 import { handledAuthFailure, runAction } from "@/lib/actions/session-guard";
 import type { ProjectView } from "@/lib/queries/project";
 
@@ -18,6 +20,11 @@ export function ProjectSettingsDialog({ project, onClose }: { project: Member; o
   const [purpose, setPurpose] = useState(project.purpose);
   const [isPublic, setIsPublic] = useState(project.isPublic);
   const [newOwner, setNewOwner] = useState(project.ownerId);
+  const [issues, setIssues] = useState<IssueSettingsDraft>({
+    enabled: project.issues.enabled,
+    key: project.issues.key ?? "",
+    template: project.issues.template,
+  });
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const archived = project.archivedAt != null;
@@ -34,7 +41,18 @@ export function ProjectSettingsDialog({ project, onClose }: { project: Member; o
   }
 
   function save() {
-    act(() => updateProject(project.id, { name, purpose, isPublic }), onClose);
+    const issuesChanged =
+      issues.enabled !== project.issues.enabled || issues.key !== (project.issues.key ?? "") || issues.template !== project.issues.template;
+    act(async () => {
+      const res = await updateProject(project.id, { name, purpose, isPublic });
+      if (!res.ok || !issuesChanged) return res;
+      // 처음 켤 때 템플릿을 비워 두면 서버가 기본 템플릿을 채운다.
+      return updateIssueSettingsAction(project.id, {
+        enabled: issues.enabled,
+        key: issues.key,
+        template: !project.issues.enabled && !issues.template.trim() ? undefined : issues.template,
+      });
+    }, onClose);
   }
 
   return (
@@ -54,6 +72,8 @@ export function ProjectSettingsDialog({ project, onClose }: { project: Member; o
           {t("visibility.private")}
         </label>
       </div>
+
+      <IssueSettingsSection projectId={project.id} settings={project.issues} draft={issues} onDraft={setIssues} />
 
       {project.isOwner && (
         <>

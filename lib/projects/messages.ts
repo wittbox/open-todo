@@ -47,12 +47,21 @@ export async function requireOwner(userId: string, projectId: string): Promise<v
   if (!p || p.ownerId !== userId) throw new PermissionError();
 }
 
-/** 본문 검사 + 멘션 풀기. 멤버·비멤버 이름을 찾아 토큰을 정리한다. 파일이 있으면 본문이 비어도 된다. */
-async function prepareBody(projectId: string, authorId: string, raw: string, allowEmpty = false) {
+/**
+ * 본문 검사 + 멘션 풀기. 멤버·비멤버 이름을 찾아 토큰을 정리한다. 파일이 있으면 본문이 비어도 된다.
+ * 이슈 본문·댓글도 같은 규칙을 쓴다(lib/issues/core.ts) — 길이 한도와 그 오류 열쇠만 다르다.
+ */
+export async function prepareBody(
+  projectId: string,
+  authorId: string,
+  raw: string,
+  allowEmpty = false,
+  limit: { max: number; key: string } = { max: MESSAGE_MAX_CHARS, key: "projects.errors.bodyTooLong" },
+) {
   const body = normalizeBody(raw);
   if (!body.trim() && !allowEmpty) throw ActionError.key("projects.errors.emptyBody");
-  if (body.length > MESSAGE_MAX_CHARS) {
-    throw ActionError.key("projects.errors.bodyTooLong", { max: MESSAGE_MAX_CHARS });
+  if (body.length > limit.max) {
+    throw ActionError.key(limit.key, { max: limit.max });
   }
 
   const memberRows = await prisma.projectMember.findMany({
@@ -72,9 +81,12 @@ async function prepareBody(projectId: string, authorId: string, raw: string, all
 }
 
 /** 파일 검사. 개수·크기·확장자. 실제 바이트 크기로 다시 본다(브라우저가 알려 준 값을 믿지 않는다). */
-function checkFiles(files: IncomingFile[]): { name: string; bytes: Buffer; mimeType: string }[] {
+export function checkFiles(
+  files: IncomingFile[],
+  tooManyKey = "files.errors.tooManyPerMessage",
+): { name: string; bytes: Buffer; mimeType: string }[] {
   if (files.length > MAX_FILES_PER_MESSAGE) {
-    throw ActionError.key("files.errors.tooManyPerMessage", { max: MAX_FILES_PER_MESSAGE });
+    throw ActionError.key(tooManyKey, { max: MAX_FILES_PER_MESSAGE });
   }
   return files.map((f) => {
     const c = checkFile(f.name, f.bytes.byteLength);

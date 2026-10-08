@@ -80,7 +80,7 @@ function message(p: Partial<MessageItem> = {}): MessageItem {
     mentions: [{ userId: "u2bbbbbbbbbbbbbbbbbbbbb", name: "윤재원" }],
     mentionsAll: true, editedAt: null, deletedAt: null, pinnedAt: null,
     createdAt: "2026-09-17T00:45:00.000Z", updatedAt: "2026-09-17T00:45:00.000Z",
-    files: [], replyCount: 0, lastReplyAt: null, isMine: true, canDelete: true,
+    files: [], issues: [], replyCount: 0, lastReplyAt: null, isMine: true, canDelete: true,
     ...p,
   } as MessageItem;
 }

@@ -9,6 +9,10 @@ import { getListRole, ROLE_RANK } from "@/lib/permissions";
 import { SMART_VIEW_THEMES } from "@/lib/theme";
 import { SmartView } from "@/components/list-view/SmartView";
 import { DetailPane } from "@/components/detail-pane/DetailPane";
+import { MyIssueRows } from "@/components/issues/MyIssueRows";
+import { listMyIssues } from "@/lib/queries/issues";
+import { dateOnlyToString } from "@/lib/date";
+import { requestToday } from "@/lib/prefs";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("tasks");
@@ -19,7 +23,7 @@ export default async function AssignedPage({ searchParams }: PageProps<"/assigne
   const t = await getTranslations("tasks");
   const userId = await requireUserId();
   const q = await searchParams;
-  const data = await getAssignedView(userId);
+  const [data, issues, today] = await Promise.all([getAssignedView(userId), listMyIssues(userId), requestToday()]);
 
   const inbox = await prisma.list.findFirst({
     where: { ownerId: userId, isInbox: true },
@@ -43,6 +47,8 @@ export default async function AssignedPage({ searchParams }: PageProps<"/assigne
           .filter((t) => data.writableListIds.has(t.listId))
           .map((t) => t.id)}
         addTo={inbox ? { listId: inbox.id, label: t("addTask") } : null}
+        // 내가 맡은 열린 이슈를 작업 아래에 비춰 보인다 — 옮겨 적지 않으니 완료는 이슈에서 한 번.
+        extra={issues.length > 0 ? <MyIssueRows issues={issues} today={dateOnlyToString(today)} /> : undefined}
         emptyMessage={
           <>
             {t("assigned.emptyLine1")}
