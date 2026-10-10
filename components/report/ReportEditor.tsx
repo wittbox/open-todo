@@ -471,10 +471,10 @@ function SendDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40" onMouseDown={onClose} role="presentation">
+    // 바깥을 눌러도 닫지 않는다 — 받는 사람을 고르다 다른 창(메일 주소록 등)을 다녀와도 쓰던 것이 사라지지 않게. 닫기는 '취소' 로만.
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40" role="presentation">
       <div
         className="thin-scroll max-h-[86dvh] w-[520px] max-w-[calc(100vw-24px)] overflow-y-auto rounded-lg bg-white p-6 shadow-[0_25.6px_57.6px_rgba(0,0,0,.22)]"
-        onMouseDown={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label={t("send.aria")}
