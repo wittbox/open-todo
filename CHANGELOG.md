@@ -83,6 +83,10 @@
   "Jump to" at the top.
 - **Migration** `20261008000000_issues` adds the issue tables and project columns; no existing data changes.
 
+### Weekly reports
+- The send-mail dialog no longer closes on a click outside it, so the recipients being typed aren't lost;
+  it closes with Cancel or after sending.
+
 ## 0.1.0 — 2026-09-21
 
 First public release.
