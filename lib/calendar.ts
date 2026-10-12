@@ -181,3 +181,70 @@ function safeDecode(s: string): string {
     return s;
   }
 }
+
+/* ── 여러 날 작업의 막대(2026-10-13) ─────────────────────────── */
+
+/** 달력 한 줄(주)에 그릴 막대 조각. col 은 0(일)~6(토). */
+export type SpanSegment = {
+  id: string;
+  week: number;
+  colStart: number;
+  colEnd: number;
+  /** 같은 줄에서 몇 번째 층인지(0 이 맨 위) */
+  lane: number;
+  /** 이 조각에서 기간이 시작·끝나는지 — 아니면 앞뒤 줄로 이어진다(◀ ▶) */
+  startsHere: boolean;
+  endsHere: boolean;
+};
+
+/**
+ * 여러 날 작업을 주마다 막대 조각으로 자르고 층을 나눈다. 날짜는 "YYYY-MM-DD"(문자열 비교가 곧 날짜 비교).
+ * 층은 줄마다 따로: 먼저 시작하는 것, 같으면 긴 것이 위로 — 겹치지 않는 가장 위 층에 넣는다.
+ * lanes[주] 는 그 줄의 층 수 — 칸은 그만큼 위를 비우고 하루짜리 칩을 그 아래에 둔다.
+ */
+export function layoutSpans(
+  weeks: string[][],
+  spans: { id: string; start: string; end: string }[],
+): { segments: SpanSegment[]; lanes: number[] } {
+  const segments: SpanSegment[] = [];
+  const lanes = weeks.map(() => 0);
+  weeks.forEach((days, week) => {
+    const first = days[0];
+    const last = days[days.length - 1];
+    const here = spans
+      .filter((s) => s.start <= last && s.end >= first)
+      .map((s) => {
+        const a = s.start < first ? first : s.start;
+        const b = s.end > last ? last : s.end;
+        return { s, colStart: days.indexOf(a), colEnd: days.indexOf(b) };
+      })
+      .sort((x, y) => x.colStart - y.colStart || y.colEnd - x.colEnd || x.s.id.localeCompare(y.s.id));
+    const taken: number[][] = []; // taken[층] = 그 층에서 쓰인 칸들의 끝
+    for (const h of here) {
+      let lane = 0;
+      while (taken[lane]?.some((end, i) => i % 2 === 1 && taken[lane][i - 1] <= h.colEnd && end >= h.colStart)) lane++;
+      (taken[lane] ??= []).push(h.colStart, h.colEnd);
+      segments.push({
+        id: h.s.id,
+        week,
+        colStart: h.colStart,
+        colEnd: h.colEnd,
+        lane,
+        startsHere: h.s.start >= first,
+        endsHere: h.s.end <= last,
+      });
+      lanes[week] = Math.max(lanes[week], lane + 1);
+    }
+  });
+  return { segments, lanes };
+}
+
+/** "YYYY-MM-DD" 두 날 사이 날수(b - a) */
+export function daysBetweenKeys(a: string, b: string): number {
+  return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
+}
+
+/** "YYYY-MM-DD" 에 n 일 더하기 */
+export function addDaysKey(key: string, n: number): string {
+  return new Date(Date.parse(`${key}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+}

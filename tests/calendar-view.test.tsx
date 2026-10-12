@@ -47,7 +47,7 @@ beforeEach(() => {
 
 function task(p: Partial<TaskItem> & { id: string; title: string }): TaskItem {
   return {
-    seq: 1, note: null, isImportant: false, isCompleted: false, completedAt: null, dueDate: null,
+    seq: 1, note: null, isImportant: false, isCompleted: false, completedAt: null, dueDate: null, startDate: null,
     inMyDay: false, order: "a0", createdAt: "2026-09-01T00:00:00.000Z", listId: "inbox", listName: "작업", groupName: null,
     stepCount: 0, stepDoneCount: 0, assignee: null, repeat: null, attachmentCount: 0, remindAt: null,
     ...p,
@@ -468,5 +468,24 @@ describe("내 이슈", () => {
     // 재기 전 칸 수는 4 — 칩 5개면 3개 + '+2개'
     expect(cell("2026-09-15").querySelectorAll("[data-chip]")).toHaveLength(3);
     expect(cell("2026-09-15").textContent).toContain("2개");
+  });
+});
+
+describe("여러 날 작업 (2026-10-13)", () => {
+  it("칩 대신 막대 — 주를 넘으면 두 조각, 이어지는 쪽에 ▶ ◀", () => {
+    show({ tasks: [task({ id: "s", title: "독일 출장", startDate: "2026-09-03", dueDate: "2026-09-09" })] });
+    const bars = document.querySelectorAll('[data-span="s"]');
+    expect(bars).toHaveLength(2);
+    expect(bars[0].textContent).toContain("▶");
+    expect(bars[0].textContent).toContain("7일");
+    expect(bars[1].textContent).toContain("◀");
+    // 기한 칸에 칩으로 또 나오지 않는다
+    expect(cell("2026-09-09").querySelector("[data-chip]")).toBeNull();
+  });
+
+  it("하루짜리(시작일 없음)는 지금처럼 칩", () => {
+    show({ tasks: [task({ id: "one", title: "보고", dueDate: "2026-09-09" })] });
+    expect(document.querySelector("[data-span]")).toBeNull();
+    expect(cell("2026-09-09").querySelector("[data-chip]")).not.toBeNull();
   });
 });

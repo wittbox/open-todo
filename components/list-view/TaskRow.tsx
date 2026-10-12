@@ -2,10 +2,10 @@
 
 import { Icon } from "@/components/icons";
 import { dateOnlyFromString, isOverdue } from "@/lib/date";
-import { DATE_ONLY } from "@/lib/format";
+import { DATE_ONLY, shortDayLabel } from "@/lib/format";
 import { listPath } from "@/lib/list-path";
 import type { TaskItem } from "@/lib/queries/list";
-import { useFormatter, useTimeZone, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTimeZone, useTranslations } from "next-intl";
 
 /**
  * 목록 한 줄. 스마트 뷰에서도 그대로 쓰므로 목록 이름을 함께 보여줄 수 있게 해 둔다.
@@ -39,6 +39,7 @@ export function TaskRow({
   const t = useTranslations("tasks");
   const tz = useTimeZone();
   const format = useFormatter();
+  const locale = useLocale();
   const due = task.dueDate ? dateOnlyFromString(task.dueDate) : null;
   const overdue = due != null && !task.isCompleted && isOverdue(due, new Date(), tz);
   const meta: React.ReactNode[] = [];
@@ -63,7 +64,10 @@ export function TaskRow({
     meta.push(
       <span key="d" className={overdue ? "text-[var(--overdue)]" : undefined}>
         <Icon name="calendar" size={13} className="mr-1 inline align-[-2px]" />
-        {format.dateTime(due, DATE_ONLY)}
+        {/* 여러 날 작업은 “10/5(월) ~ 10/7(수)” (2026-10-13) */}
+        {task.startDate
+          ? `${shortDayLabel(dateOnlyFromString(task.startDate), locale)} ~ ${shortDayLabel(due, locale)}`
+          : format.dateTime(due, DATE_ONLY)}
       </span>,
     );
   }

@@ -68,7 +68,7 @@ export async function getAccessibleLists(userId: string, opts: { includeHidden?:
 
 const TASK_SELECT = {
   id: true, seq: true, title: true, note: true, isImportant: true, isCompleted: true,
-  completedAt: true, dueDate: true, order: true, createdAt: true, listId: true,
+  completedAt: true, startDate: true, dueDate: true, order: true, createdAt: true, listId: true,
   list: { select: { name: true, group: { select: { name: true } } } },
   assignee: { select: { id: true, name: true, avatarColor: true } },
   repeatUnit: true, repeatEvery: true, repeatDays: true, remindAt: true,
@@ -79,7 +79,7 @@ const TASK_SELECT = {
 type RawTask = {
   id: string; seq: number; title: string; note: string | null;
   isImportant: boolean; isCompleted: boolean; completedAt: Date | null;
-  dueDate: Date | null; order: string; createdAt: Date; listId: string;
+  startDate: Date | null; dueDate: Date | null; order: string; createdAt: Date; listId: string;
   list: { name: string; group: { name: string } | null };
   assignee: { id: string; name: string; avatarColor: string } | null;
   repeatUnit: string | null;
@@ -100,6 +100,7 @@ function toTaskItem(t: RawTask, inMyDay: boolean): TaskItem {
     isCompleted: t.isCompleted,
     completedAt: t.completedAt?.toISOString() ?? null,
     dueDate: toDateString(t.dueDate),
+    startDate: toDateString(t.startDate),
     inMyDay,
     order: t.order,
     createdAt: t.createdAt.toISOString(),
@@ -194,6 +195,8 @@ export async function getCalendarView(
         listId: { in: listIds },
         OR: [
           { dueDate: { gte: from, lt: end } },
+          // 여러 날 작업이 보는 기간 뒤에서 끝나도 앞쪽이 걸치면 막대를 그린다
+          { startDate: { lt: end }, dueDate: { gte: end } },
           { isCompleted: false, repeatUnit: { not: null }, dueDate: { lt: from } },
         ],
       },

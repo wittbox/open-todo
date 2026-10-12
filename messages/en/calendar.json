@@ -38,7 +38,8 @@
     "taskName": "Task name",
     "list": "List",
     "submit": "Add",
-    "hint": "Enter adds and keeps typing · Esc closes"
+    "hint": "Enter adds and keeps typing · Esc closes",
+    "range": "{range} · {days, plural, one {# day} other {# days}}"
   },
   "filter": {
     "title": "Lists to show",
@@ -63,5 +64,11 @@
     "nationalFoundation": "National Foundation Day",
     "hangul": "Hangul Day",
     "christmas": "Christmas"
+  },
+  "span": {
+    "days": "{days, plural, one {# day} other {# days}}",
+    "title": "{title} — {range} · {days, plural, one {# day} other {# days}} · {where}",
+    "resize": "Change the due date of {title}",
+    "resizeHint": "Drag to change the due date"
   }
 }

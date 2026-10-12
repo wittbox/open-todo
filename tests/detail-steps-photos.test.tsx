@@ -50,7 +50,7 @@ const LONG = "판정 근거가 자동생성이라 되어있으나 생성 규칙�
 function detail(p: Partial<TaskDetail> = {}): TaskDetail {
   return {
     id: "t1", seq: 212, title: "시험 성적서 검토", note: null, isImportant: false, isCompleted: false,
-    completedAt: null, dueDate: null, inMyDay: false, order: "a0", createdAt: "2026-10-01T00:00:00.000Z",
+    completedAt: null, dueDate: null, startDate: null, inMyDay: false, order: "a0", createdAt: "2026-10-01T00:00:00.000Z",
     listId: "l1", listName: "품질", groupName: null, stepCount: 1, stepDoneCount: 0,
     assignee: null, repeat: null, attachmentCount: 0, remindAt: null, listOwnerName: null,
     steps: [{ id: "s1", title: LONG, isCompleted: false, order: "a0" }],

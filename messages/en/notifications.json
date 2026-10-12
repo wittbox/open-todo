@@ -25,6 +25,7 @@
   "items": {
     "REMINDER": "Reminder for <b>{task}</b>",
     "DUE_TODAY": "<b>{task}</b> is due today",
+    "START_TODAY": "<b>{task}</b> starts today",
     "ASSIGNED": "{actor} assigned <b>{task}</b> to you",
     "SHARED": "{actor} shared <b>{list}</b> with you",
     "REPORT_SEND_FAILED": "Couldn't send the scheduled mail for <b>{report}</b>",

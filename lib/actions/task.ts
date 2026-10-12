@@ -31,7 +31,7 @@ function cleanTitle(raw: string): string {
 export async function createTask(
   listId: string,
   title: string,
-  opts: { important?: boolean; myDay?: boolean; dueDate?: string | null } = {},
+  opts: { important?: boolean; myDay?: boolean; dueDate?: string | null; startDate?: string | null } = {},
 ): Promise<ActionResult<{ id: string; seq: number }>> {
   return run(async () => {
     const userId = await requireUserId();
@@ -39,6 +39,8 @@ export async function createTask(
 
     const t = cleanTitle(title);
     if (!t) throw ActionError.key("tasks.errors.emptyTitle");
+    // 달력에서 여러 날을 끌어 만들면 시작일도 함께 온다(2026-10-13).
+    const startDate = checkPeriod(opts.startDate ?? null, opts.dueDate ?? null);
 
     // 새 작업은 미완료 목록의 맨 뒤에 붙인다.
     const last = await prisma.task.findFirst({
@@ -54,6 +56,7 @@ export async function createTask(
         title: t,
         isImportant: opts.important ?? false,
         dueDate: opts.dueDate ? new Date(`${opts.dueDate}T00:00:00.000Z`) : null,
+        startDate,
         order: orderAfter(last?.order ?? null),
       },
       select: { id: true, seq: true },
@@ -68,6 +71,23 @@ export async function createTask(
   });
 }
 
+/** Date(날짜 전용, UTC 자정) → "YYYY-MM-DD" */
+function toKey(d: Date | null): string | null {
+  return d ? d.toISOString().slice(0, 10) : null;
+}
+
+/**
+ * 시작일 검사(2026-10-13). 기한이 없으면 시작일을 둘 수 없고, 시작일은 기한보다 늦을 수 없다.
+ * 시작일이 기한과 같으면 하루짜리라 비워 둔다.
+ */
+function checkPeriod(start: string | null, due: string | null): Date | null {
+  if (!start) return null;
+  if (!due) throw ActionError.key("tasks.errors.startNeedsDue");
+  if (start > due) throw ActionError.key("tasks.errors.startAfterDue");
+  if (start === due) return null;
+  return new Date(`${start}T00:00:00.000Z`);
+}
+
 export type TaskPatch = {
   title?: string;
   note?: string | null;
@@ -75,6 +95,8 @@ export type TaskPatch = {
   isCompleted?: boolean;
   /** "YYYY-MM-DD" 또는 null. 날짜 전용 값이므로 UTC 자정으로 저장된다. */
   dueDate?: string | null;
+  /** 여러 날 작업의 시작일 "YYYY-MM-DD" 또는 null(하루짜리). 기한이 있어야 하고 기한보다 늦을 수 없다. */
+  startDate?: string | null;
   /** 나의 하루는 사용자마다 달라서 Task 가 아니라 MyDayEntry 로 저장한다 */
   myDay?: boolean;
 };
@@ -109,6 +131,15 @@ export async function updateTask(id: string, patch: TaskPatch): Promise<ActionRe
     }
     if (patch.dueDate !== undefined) {
       data.dueDate = patch.dueDate ? new Date(`${patch.dueDate}T00:00:00.000Z`) : null;
+    }
+    if (patch.dueDate !== undefined || patch.startDate !== undefined) {
+      // 기한·시작일 중 하나만 와도 둘을 함께 맞춰 본다. 기한을 지우면 시작일도 지운다.
+      const cur = await prisma.task.findUniqueOrThrow({ where: { id }, select: { dueDate: true, startDate: true } });
+      const due = patch.dueDate !== undefined ? patch.dueDate : toKey(cur.dueDate);
+      const start = patch.startDate !== undefined ? patch.startDate : toKey(cur.startDate);
+      // 기한만 바꿨는데 시작일보다 앞이 되면 — 시작일을 지워 하루짜리로(기간째 옮기기는 둘을 함께 보낸다)
+      const keepStart = !due || (patch.startDate === undefined && start && start > due) ? null : start;
+      data.startDate = checkPeriod(keepStart, due);
     }
 
     if (Object.keys(data).length > 0) await prisma.task.update({ where: { id }, data });
@@ -178,7 +209,7 @@ async function spawnNextOccurrence(taskId: string, completedOn: Date): Promise<v
     where: { id: taskId },
     select: {
       listId: true, creatorId: true, assigneeId: true, title: true, note: true,
-      isImportant: true, dueDate: true, order: true,
+      isImportant: true, dueDate: true, startDate: true, order: true,
       repeatUnit: true, repeatEvery: true, repeatDays: true,
       steps: { orderBy: { order: "asc" }, select: { title: true, order: true } },
       list: { select: { group: { select: { hiddenAt: true } } } },
@@ -204,6 +235,8 @@ async function spawnNextOccurrence(taskId: string, completedOn: Date): Promise<v
       note: t.note,
       isImportant: t.isImportant,
       dueDate: due,
+      // 여러 날 작업은 같은 길이로 따라간다(3일 교육이면 다음 회차도 3일)
+      startDate: t.startDate && t.dueDate ? new Date(due.getTime() - (t.dueDate.getTime() - t.startDate.getTime())) : null,
       order: t.order,
       repeatUnit: rule.unit,
       repeatEvery: rule.every,

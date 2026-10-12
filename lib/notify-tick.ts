@@ -30,6 +30,7 @@ const MORNING_HOUR = 8;
 export type TickResult = {
   reminders: number;
   dueToday: number;
+  startToday: number;
   digests: number;
   cleaned: number;
 };
@@ -44,7 +45,7 @@ function localNow(now: Date, tz: string) {
 const ownerOf = (t: { assigneeId: string | null; creatorId: string | null }) => t.assigneeId ?? t.creatorId;
 
 export async function runTick(now: Date = new Date()): Promise<TickResult> {
-  const result: TickResult = { reminders: 0, dueToday: 0, digests: 0, cleaned: 0 };
+  const result: TickResult = { reminders: 0, dueToday: 0, startToday: 0, digests: 0, cleaned: 0 };
 
   // 1. 지정한 미리 알림 시각이 지난 것. 날짜 열쇠는 받는 사람의 오늘(notify 가 정한다).
   const due = await prisma.task.findMany({
@@ -86,6 +87,23 @@ export async function runTick(now: Date = new Date()): Promise<TickResult> {
     if (local.hour < MORNING_HOUR || t.dueDate.getTime() !== local.today.getTime()) continue;
     await notify({ userId, kind: "DUE_TODAY", taskId: t.id, dayKey: dateOnlyToString(local.today) });
     result.dueToday += 1;
+  }
+
+  // 2-1. 여러 날 작업이 오늘 시작하는 것(2026-10-13) — 기한 알림과 같은 규칙(챙길 사람의 오늘, 8시 이후)
+  const nearStart = await prisma.task.findMany({
+    where: { isCompleted: false, startDate: { gte: addDays(utcToday, -1), lte: addDays(utcToday, 1) }, ...VISIBLE_TASK },
+    select: { id: true, startDate: true, assigneeId: true, creatorId: true },
+    take: 1500,
+  });
+  const starters = await getUsersPrefs(nearStart.map(ownerOf).filter((id): id is string => id != null));
+  for (const t of nearStart) {
+    const userId = ownerOf(t);
+    const prefs = userId ? starters.get(userId) : undefined;
+    if (!userId || !prefs || !t.startDate) continue;
+    const local = localNow(now, prefs.timeZone);
+    if (local.hour < MORNING_HOUR || t.startDate.getTime() !== local.today.getTime()) continue;
+    await notify({ userId, kind: "START_TODAY", taskId: t.id, dayKey: dateOnlyToString(local.today) });
+    result.startToday += 1;
   }
 
   // 3. 아침 요약 메일 — 각자 평일 8시 이후, 각자의 하루에 한 통

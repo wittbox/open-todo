@@ -45,6 +45,8 @@ enum NotificationKind {
   REMINDER
   /// 기한이 오늘이다
   DUE_TODAY
+  /// 여러 날 작업이 오늘 시작한다(2026-10-13)
+  START_TODAY
   /// 누가 나를 담당자로 지정했다
   ASSIGNED
   /// 누가 목록을 나에게 공유했다
@@ -327,6 +329,9 @@ model Task {
   isImportant Boolean   @default(false)
   isCompleted Boolean   @default(false)
   completedAt DateTime?
+  /// 여러 날에 걸친 작업의 시작일(2026-10-13). 시작일~기한이 기간이고 달력에 막대로 그린다.
+  /// 비어 있으면 하루짜리(기한만). 기한 없이는 둘 수 없고 기한보다 늦을 수 없다(마이그레이션의 CHECK).
+  startDate   DateTime? @db.Date
   dueDate     DateTime? @db.Date
   order       String
   createdAt   DateTime  @default(now())

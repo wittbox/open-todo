@@ -31,8 +31,11 @@ import { TaskRow } from "@/components/list-view/TaskRow";
 import { createTask, updateTask } from "@/lib/actions/task";
 import { handledAuthFailure, runAction } from "@/lib/actions/session-guard";
 import {
+  addDaysKey,
   CALENDAR_PREFS_COOKIE,
   compareCellEntries,
+  daysBetweenKeys,
+  layoutSpans,
   PAGE_WEEKS,
   rangeNeedsYear,
   serializePrefs,
@@ -40,10 +43,11 @@ import {
   type CalendarList,
   type CalendarPrefs,
   type Ghost,
+  type SpanSegment,
 } from "@/lib/calendar";
 import { addDays, dateOnlyFromString, dateOnlyToString, isoWeek } from "@/lib/date";
-import { useFormatter, useTranslations } from "next-intl";
-import { DATE_ONLY } from "@/lib/format";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
+import { DATE_ONLY, shortDayLabel } from "@/lib/format";
 import { holidayName, type HolidayRegion } from "@/lib/holidays";
 import { listPath } from "@/lib/list-path";
 import type { MyIssue } from "@/lib/queries/issues";
@@ -100,11 +104,15 @@ const CHIP_H = 23;
 type Entry = { key: string; task: TaskItem; ghost: boolean };
 
 type Pop =
-  | { kind: "add"; date: string; rect: DOMRect }
+  /** end 가 있으면 여러 날(date~end)을 끌어 고른 것 — 기간 작업으로 만든다 */
+  | { kind: "add"; date: string; end?: string; rect: DOMRect }
   | { kind: "day"; date: string; rect: DOMRect }
   | { kind: "filter"; rect: DOMRect };
 
-type Changes = { isCompleted?: boolean; isImportant?: boolean; dueDate?: string };
+type Changes = { isCompleted?: boolean; isImportant?: boolean; dueDate?: string; startDate?: string | null };
+
+/** 여러 날 작업 — 시작일이 기한보다 앞이다(2026-10-13). 칸 달력에서는 칩 대신 막대로 그린다. */
+const isSpan = (t: TaskItem) => t.startDate != null && t.dueDate != null && t.startDate < t.dueDate;
 
 const applyChanges = (prev: TaskItem[], p: { id: string; changes: Changes }) =>
   prev.map((t) => (t.id === p.id ? { ...t, ...p.changes } : t));
@@ -187,6 +195,7 @@ export function CalendarView({
     };
     for (const t of patched) {
       if (!t.dueDate || hidden.has(t.listId) || (!prefs.showDone && t.isCompleted)) continue;
+      if (isSpan(t)) continue; // 막대로 그린다(spanTasks)
       put(t.dueDate, { key: t.id, task: t, ghost: false });
     }
     // 방금 완료한 반복 작업의 회차는 곧 실제 작업으로 바뀌므로 바로 걷는다.
@@ -199,6 +208,32 @@ export function CalendarView({
     for (const arr of m.values()) arr.sort(compareCellEntries);
     return m;
   }, [patched, ghosts, ghostSources, hidden, prefs.showDone]);
+
+  // 여러 날 작업 — 칸 달력에서는 막대, 폰·‘+N개’ 창에서는 걸친 날마다 한 줄
+  const spanTasks = useMemo(
+    () => patched.filter((t) => isSpan(t) && !hidden.has(t.listId) && (prefs.showDone || !t.isCompleted)),
+    [patched, hidden, prefs.showDone],
+  );
+  const spanLayout = useMemo(
+    () => layoutSpans(weeks, spanTasks.map((t) => ({ id: t.id, start: t.startDate!, end: t.dueDate! }))),
+    [weeks, spanTasks],
+  );
+  const spanById = useMemo(() => new Map(spanTasks.map((t) => [t.id, t])), [spanTasks]);
+  const spanByDate = useMemo(() => {
+    const m = new Map<string, Entry[]>();
+    const all = weeks.flat();
+    for (const t of spanTasks) {
+      for (const d of all) {
+        if (d < t.startDate! || d > t.dueDate!) continue;
+        const arr = m.get(d) ?? [];
+        arr.push({ key: `${t.id}#${d}`, task: t, ghost: false });
+        m.set(d, arr);
+      }
+    }
+    return m;
+  }, [spanTasks, weeks]);
+  /** 그날의 모든 작업 — 기간 작업이 앞에(폰 목록·‘+N개’ 창·점) */
+  const dayEntries = (date: string) => [...(spanByDate.get(date) ?? []), ...(byDate.get(date) ?? [])];
 
   useLayoutEffect(() => {
     const el = gridRef.current;
@@ -254,9 +289,11 @@ export function CalendarView({
     null;
   const canAdd = addListId != null;
 
-  async function addTask(date: string, listId: string, title: string): Promise<boolean> {
+  async function addTask(date: string, listId: string, title: string, end?: string): Promise<boolean> {
     if (prefs.addListId !== listId) savePrefs({ ...prefs, addListId: listId });
-    const res = await runAction(() => createTask(listId, title, { dueDate: date }));
+    const res = await runAction(() =>
+      createTask(listId, title, end ? { startDate: date, dueDate: end } : { dueDate: date }),
+    );
     if (!res.ok) {
       if (!handledAuthFailure(res)) setError(res.error);
       return false;
@@ -274,6 +311,9 @@ export function CalendarView({
     useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 8 } }),
   );
 
+  // 막대를 잡은 날이 시작일에서 며칠째인지 — 놓은 날이 그 날이 되게 기간째 옮긴다(SpanBar 가 잡을 때 적는다).
+  const grabOffset = useRef<number | null>(null);
+
   function onDragStart(e: DragStartEvent) {
     setDragId((e.active.data.current?.taskId as string | undefined) ?? null);
   }
@@ -281,14 +321,54 @@ export function CalendarView({
   function onDragEnd(e: DragEndEvent) {
     setDragId(null);
     const taskId = e.active.data.current?.taskId as string | undefined;
+    const kind = (e.active.data.current?.kind as string | undefined) ?? "move";
+    const offset = grabOffset.current;
+    grabOffset.current = null;
     const over = e.over ? String(e.over.id) : "";
     if (!taskId || !over.startsWith("D:")) return;
     const date = over.slice(2);
     const t = findTask(taskId);
-    if (!t || t.dueDate === date) return;
+    if (!t) return;
     setPop(null);
+    if (t.startDate && t.dueDate) {
+      const length = daysBetweenKeys(t.startDate, t.dueDate);
+      if (kind === "resize") {
+        // 오른쪽 끝을 끌면 기한만 — 시작일보다 앞으로는 못 간다(같아지면 하루짜리)
+        const due = date < t.startDate ? t.startDate : date;
+        if (due === t.dueDate) return;
+        patch(t, { dueDate: due, startDate: due === t.startDate ? null : t.startDate });
+        return;
+      }
+      // 기간째 옮기기. 막대가 아닌 곳(지난 기한 줄)에서 끌면 끝날을 놓은 날로.
+      const start = addDaysKey(date, -(offset ?? length));
+      if (start === t.startDate) return;
+      patch(t, { startDate: start, dueDate: addDaysKey(start, length) });
+      return;
+    }
+    if (t.dueDate === date) return;
     patch(t, { dueDate: date });
   }
+
+  /* ── 빈 칸을 끌어 여러 날 고르기(PC) ── */
+  const [range, setRange] = useState<{ a: string; b: string } | null>(null);
+  // 끌어 고른 직후의 click 은 ‘하루 추가’ 가 아니다
+  const suppressClick = useRef(false);
+  useEffect(() => {
+    if (!range) return;
+    const up = () => {
+      const [from, to] = range.a <= range.b ? [range.a, range.b] : [range.b, range.a];
+      setRange(null);
+      if (from === to) return;
+      suppressClick.current = true;
+      setTimeout(() => (suppressClick.current = false), 0);
+      const cell = document.querySelector(`[data-date="${range.b}"]`);
+      if (cell) setPop({ kind: "add", date: from, end: to, rect: cell.getBoundingClientRect() });
+    };
+    window.addEventListener("pointerup", up);
+    return () => window.removeEventListener("pointerup", up);
+  }, [range]);
+  const inRange = (d: string) =>
+    range != null && ((d >= range.a && d <= range.b) || (d >= range.b && d <= range.a));
 
   const findTask = (id: string) => patched.find((x) => x.id === id) ?? overduePatched.find((x) => x.id === id);
   const dragTask = dragId ? (findTask(dragId) ?? null) : null;
@@ -436,14 +516,14 @@ export function CalendarView({
                 weeks={weeks}
                 today={today}
                 selected={day}
-                entriesOf={(date) => byDate.get(date) ?? []}
+                entriesOf={dayEntries}
                 issueCountOf={(date) => issuesByDate.get(date)?.length ?? 0}
                 colorOf={(t) => listById.get(t.listId)?.color ?? "#8a8886"}
                 onPick={setDay}
                 holidays={holidays}
               />
-              <PhoneDay date={day} today={today} count={(byDate.get(day) ?? []).length + (issuesByDate.get(day)?.length ?? 0)}>
-                {(byDate.get(day) ?? []).map((e) =>
+              <PhoneDay date={day} today={today} count={dayEntries(day).length + (issuesByDate.get(day)?.length ?? 0)}>
+                {dayEntries(day).map((e) =>
                   e.ghost ? (
                     <GhostRow
                       key={e.key}
@@ -505,23 +585,55 @@ export function CalendarView({
               </div>
             ))}
 
-            {days.map((date) => (
-              <DayCell
-                key={date}
-                date={date}
-                isToday={date === today}
-                entries={byDate.get(date) ?? []}
-                issues={issuesByDate.get(date) ?? []}
-                slots={slots}
-                canAdd={canAdd}
-                onAdd={(rect) => setPop({ kind: "add", date, rect })}
-                onMore={(rect) => setPop({ kind: "day", date, rect })}
-                holidays={holidays}
-                renderChip={(e) =>
-                  e.ghost ? <ChipFace key={e.key} {...chipProps(e)} /> : <DraggableChip key={e.key} {...chipProps(e)} />
-                }
-              />
-            ))}
+            {/* 칸은 자리를 정해 둔다 — 막대가 같은 자리에 겹쳐 앉아도 칸이 밀리지 않게 */}
+            {weeks.map((week, wi) =>
+              week.map((date, di) => (
+                <DayCell
+                  key={date}
+                  date={date}
+                  row={wi + 2}
+                  col={di + 1}
+                  reserve={spanLayout.lanes[wi]}
+                  selecting={inRange(date)}
+                  isToday={date === today}
+                  entries={byDate.get(date) ?? []}
+                  spanCount={spanByDate.get(date)?.length ?? 0}
+                  issues={issuesByDate.get(date) ?? []}
+                  slots={slots}
+                  canAdd={canAdd}
+                  onAdd={(rect) => {
+                    if (suppressClick.current) return;
+                    setPop({ kind: "add", date, rect });
+                  }}
+                  onRangeStart={() => canAdd && setRange({ a: date, b: date })}
+                  onRangeEnter={() => setRange((r) => (r ? { ...r, b: date } : r))}
+                  onMore={(rect) => setPop({ kind: "day", date, rect })}
+                  holidays={holidays}
+                  renderChip={(e) =>
+                    e.ghost ? <ChipFace key={e.key} {...chipProps(e)} /> : <DraggableChip key={e.key} {...chipProps(e)} />
+                  }
+                />
+              )),
+            )}
+            {spanLayout.segments.map((seg) => {
+              const t = spanById.get(seg.id);
+              if (!t) return null;
+              return (
+                <SpanBar
+                  key={`${seg.id}:${seg.week}`}
+                  seg={seg}
+                  week={weeks[seg.week]}
+                  task={t}
+                  color={listById.get(t.listId)?.color ?? "#8a8886"}
+                  overdue={!t.isCompleted && t.dueDate! < today}
+                  selected={selectedId === t.id}
+                  canWrite={canWrite(t)}
+                  onToggle={() => patch(t, { isCompleted: !t.isCompleted })}
+                  onSelect={() => select(t.id)}
+                  onGrab={(offset) => (grabOffset.current = offset)}
+                />
+              );
+            })}
           </div>
           )}
 
@@ -534,7 +646,7 @@ export function CalendarView({
               onClose={closePop}
               onAdd={() => setPop({ kind: "add", date: pop.date, rect: pop.rect })}
             >
-              {(byDate.get(pop.date) ?? []).map((e) =>
+              {dayEntries(pop.date).map((e) =>
                 e.ghost ? (
                   <GhostRow
                     key={e.key}
@@ -574,11 +686,12 @@ export function CalendarView({
         {pop?.kind === "add" && addListId && (
           <AddPopover
             date={pop.date}
+            end={pop.end}
             rect={pop.rect}
             lists={writableLists}
             defaultListId={addListId}
             onClose={closePop}
-            onSubmit={(listId, title) => addTask(pop.date, listId, title)}
+            onSubmit={(listId, title) => addTask(pop.date, listId, title, pop.end)}
           />
         )}
 
@@ -606,24 +719,42 @@ export function CalendarView({
 
 function DayCell({
   date,
+  row,
+  col,
+  reserve,
+  selecting,
   isToday,
   entries,
+  spanCount,
   issues,
   slots,
   canAdd,
   onAdd,
+  onRangeStart,
+  onRangeEnter,
   onMore,
   renderChip,
   holidays,
 }: {
   date: string;
+  /** 칸 달력의 줄·칸(1부터, 첫 줄은 요일) */
+  row: number;
+  col: number;
+  /** 이 줄의 막대 층 수 — 그만큼 위를 비운다 */
+  reserve: number;
+  /** 빈 칸을 끌어 고르는 중이고 이 날이 그 안이다 */
+  selecting: boolean;
   isToday: boolean;
   entries: Entry[];
+  /** 이 날에 걸친 기간 작업 수(막대) — ‘+N개’ 창에 함께 나온다 */
+  spanCount: number;
   /** 기한이 이날인 내 이슈 — 작업 칩 뒤에 깃발 칩으로 */
   issues: MyIssue[];
   slots: number;
   canAdd: boolean;
   onAdd: (rect: DOMRect) => void;
+  onRangeStart: () => void;
+  onRangeEnter: () => void;
   onMore: (rect: DOMRect) => void;
   renderChip: (e: Entry) => React.ReactNode;
   holidays: HolidayRegion;
@@ -641,8 +772,11 @@ function DayCell({
 
   // 넘치면 '+N개' 한 줄을 칩 한 칸 자리에 둔다. 이슈 칩도 같은 칸 수를 나눠 쓴다(작업이 먼저).
   const chips = [...entries.map(renderChip), ...issues.map((i) => <IssueChip key={i.id} issue={i} />)];
-  const shown = chips.length > slots ? chips.slice(0, Math.max(1, slots - 1)) : chips;
-  const rest = chips.length - shown.length;
+  // 막대 층만큼 칸이 줄어든다
+  const room = Math.max(1, slots - reserve);
+  const shown = chips.length > room ? chips.slice(0, Math.max(1, room - 1)) : chips;
+  // 막대가 칸을 다 차지하면 그날 일은 ‘+N개’ 창에서 본다
+  const rest = chips.length - shown.length + (spanCount > 0 && shown.length < chips.length ? spanCount : 0);
   const rect = () => ref.current!.getBoundingClientRect();
 
   return (
@@ -655,18 +789,26 @@ function DayCell({
       aria-label={holiday ? t("dayWithHoliday", { date: dateLabel, holiday }) : dateLabel}
       onClick={(e) => {
         // 칩·버튼을 누른 것은 제 할 일을 한다. 빈 곳만 '추가' 다.
-        if (!canAdd || (e.target as HTMLElement).closest("[data-chip],button")) return;
+        if (!canAdd || (e.target as HTMLElement).closest("[data-chip],[data-span],button")) return;
         onAdd(rect());
       }}
+      // 빈 곳을 누른 채 옆 칸으로 끌면 여러 날 고르기(2026-10-13)
+      onPointerDown={(e) => {
+        if (e.button !== 0 || e.pointerType === "touch" || (e.target as HTMLElement).closest("[data-chip],[data-span],button")) return;
+        onRangeStart();
+      }}
+      onPointerEnter={onRangeEnter}
+      style={{ borderColor: GRID_LINE, gridRow: row, gridColumn: col }}
       className={[
-        "group relative min-w-0 overflow-hidden border-b border-r pb-1",
-        isOver
-          ? "bg-[rgba(37,100,207,.08)] outline-2 -outline-offset-[3px] outline-dashed outline-link"
-          : isToday
-            ? "bg-white/70"
-            : "bg-white/40",
+        "group relative min-w-0 select-none overflow-hidden border-b border-r pb-1",
+        selecting
+          ? "bg-[rgba(37,100,207,.12)]"
+          : isOver
+            ? "bg-[rgba(37,100,207,.08)] outline-2 -outline-offset-[3px] outline-dashed outline-link"
+            : isToday
+              ? "bg-white/70"
+              : "bg-white/40",
       ].join(" ")}
-      style={{ borderColor: GRID_LINE }}
     >
       <div className="flex h-[26px] items-center gap-1.5 px-1.5 pt-0.5">
         <span
@@ -697,6 +839,9 @@ function DayCell({
         )}
         {holiday && <span className="truncate text-[11px] text-danger">{holiday}</span>}
       </div>
+
+      {/* 막대 자리 */}
+      {reserve > 0 && <div aria-hidden="true" style={{ height: reserve * CHIP_H }} />}
 
       {shown}
 
@@ -906,6 +1051,127 @@ function DraggableChip(props: ChipProps) {
   return (
     <div ref={setNodeRef} {...listeners} className={draggable ? "touch-manipulation" : undefined}>
       <ChipFace {...props} dragging={isDragging} />
+    </div>
+  );
+}
+
+/**
+ * 여러 날 작업의 막대 한 조각(2026-10-13). 주마다 끊기고, 앞뒤 줄로 이어지면 그쪽 끝을 각지게 하고 ◀ ▶ 를 단다.
+ * 끌면 기간째 옮기고(잡은 날이 놓은 날로), 끝날 조각의 오른쪽 손잡이를 끌면 기한만 바뀐다.
+ */
+function SpanBar({
+  seg,
+  week,
+  task,
+  color,
+  overdue,
+  selected,
+  canWrite,
+  onToggle,
+  onSelect,
+  onGrab,
+}: {
+  seg: SpanSegment;
+  week: string[];
+  task: TaskItem;
+  color: string;
+  overdue: boolean;
+  selected: boolean;
+  canWrite: boolean;
+  onToggle: () => void;
+  onSelect: () => void;
+  onGrab: (offsetDays: number) => void;
+}) {
+  const t = useTranslations("calendar");
+  const locale = useLocale();
+  const {
+    setNodeRef: setMoveRef,
+    listeners: moveListeners,
+    attributes: moveAttributes,
+    isDragging,
+  } = useDraggable({ id: `S:${task.id}:${seg.week}`, data: { taskId: task.id, kind: "move" }, disabled: !canWrite });
+  const {
+    setNodeRef: setResizeRef,
+    listeners: resizeRaw,
+    attributes: resizeAttributes,
+  } = useDraggable({ id: `R:${task.id}`, data: { taskId: task.id, kind: "resize" }, disabled: !canWrite || !seg.endsHere });
+  const days = daysBetweenKeys(task.startDate!, task.dueDate!) + 1;
+  const range = `${shortDayLabel(dateOnlyFromString(task.startDate!), locale)} ~ ${shortDayLabel(dateOnlyFromString(task.dueDate!), locale)}`;
+  // 손잡이를 잡은 것이 막대 끌기로 번지지 않게
+  const resizeListeners = Object.fromEntries(
+    Object.entries(resizeRaw ?? {}).map(([k, fn]) => [
+      k,
+      (e: React.SyntheticEvent) => {
+        e.stopPropagation();
+        (fn as (e: React.SyntheticEvent) => void)(e);
+      },
+    ]),
+  );
+  return (
+    <div
+      ref={setMoveRef}
+      {...moveListeners}
+      {...moveAttributes}
+      data-span={task.id}
+      onPointerDownCapture={(e) => {
+        // 막대에서 잡은 칸 → 시작일에서 며칠째인지
+        const r = e.currentTarget.getBoundingClientRect();
+        const cols = seg.colEnd - seg.colStart + 1;
+        const col = seg.colStart + Math.min(cols - 1, Math.max(0, Math.floor(((e.clientX - r.left) / r.width) * cols)));
+        onGrab(daysBetweenKeys(task.startDate!, week[col]));
+      }}
+      onClick={onSelect}
+      title={t("span.title", { title: task.title, range, days, where: listPath(task.groupName, task.listName) })}
+      style={{
+        gridRow: seg.week + 2,
+        gridColumn: `${seg.colStart + 1} / ${seg.colEnd + 2}`,
+        marginTop: DATE_H + seg.lane * CHIP_H,
+        background: `color-mix(in srgb, ${color} 16%, white)`,
+        borderLeft: seg.startsHere ? `3px solid ${color}` : undefined,
+        opacity: isDragging ? 0.35 : task.isCompleted ? 0.55 : 1,
+      }}
+      className={[
+        "relative z-[1] mx-1 flex h-[21px] cursor-pointer items-center gap-1 self-start overflow-hidden pr-1 text-xs",
+        seg.startsHere ? "rounded-l-[3px]" : "-ml-px pl-1",
+        seg.endsHere ? "rounded-r-[3px]" : "-mr-px",
+        selected ? "ring-2 ring-link" : "",
+        "shadow-[0_0_0_1px_rgba(0,0,0,.05)]",
+      ].join(" ")}
+    >
+      {!seg.startsHere && <span aria-hidden="true" className="shrink-0 text-[9px] opacity-60">◀</span>}
+      {seg.startsHere && (
+        <button
+          type="button"
+          disabled={!canWrite}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
+          aria-label={task.isCompleted ? t("uncomplete", { title: task.title }) : t("complete", { title: task.title })}
+          className={`ml-1 grid h-[11px] w-[11px] shrink-0 place-items-center rounded-full border ${task.isCompleted ? "" : "border-ink-3"}`}
+          style={task.isCompleted ? { background: color, borderColor: color } : undefined}
+        >
+          {task.isCompleted && <Icon name="check" size={9} className="text-white" />}
+        </button>
+      )}
+      <span
+        className={`min-w-0 flex-1 truncate pl-0.5 ${task.isCompleted ? "text-ink-2 line-through" : overdue ? "text-[var(--overdue)]" : "text-ink"}`}
+      >
+        {task.title}
+        <span className="text-ink-3"> · {seg.startsHere ? t("span.days", { days }) : range}</span>
+      </span>
+      {!seg.endsHere && <span aria-hidden="true" className="shrink-0 text-[9px] opacity-60">▶</span>}
+      {seg.endsHere && canWrite && (
+        <span
+          ref={setResizeRef}
+          {...resizeListeners}
+          {...resizeAttributes}
+          aria-label={t("span.resize", { title: task.title })}
+          title={t("span.resizeHint")}
+          className="absolute right-0 top-0 h-full w-2 cursor-ew-resize hover:bg-black/10"
+        />
+      )}
     </div>
   );
 }
@@ -1215,6 +1481,7 @@ function Popover({
 
 function AddPopover({
   date,
+  end,
   rect,
   lists,
   defaultListId,
@@ -1222,6 +1489,8 @@ function AddPopover({
   onSubmit,
 }: {
   date: string;
+  /** 여러 날을 끌어 골랐으면 끝날 — date~end 의 기간 작업이 된다 */
+  end?: string;
   rect: DOMRect;
   lists: CalendarList[];
   defaultListId: string;
@@ -1234,7 +1503,15 @@ function AddPopover({
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const label = useFormatter().dateTime(dateOnlyFromString(date), DATE_ONLY);
+  const locale = useLocale();
+  const single = useFormatter().dateTime(dateOnlyFromString(date), DATE_ONLY);
+  // 여러 날을 끌어 고르면 “10/13(화) ~ 10/15(목) · 3일”
+  const label = end
+    ? t("add.range", {
+        range: `${shortDayLabel(dateOnlyFromString(date), locale)} ~ ${shortDayLabel(dateOnlyFromString(end), locale)}`,
+        days: daysBetweenKeys(date, end) + 1,
+      })
+    : single;
 
   useEffect(() => inputRef.current?.focus(), []);
 

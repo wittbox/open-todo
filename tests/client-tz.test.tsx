@@ -28,7 +28,7 @@ beforeEach(() => {
 function task(p: Partial<TaskItem>): TaskItem {
   return {
     id: "t", seq: 1, title: "보고서 제출", note: null, isImportant: false, isCompleted: false, completedAt: null,
-    dueDate: "2026-03-07", inMyDay: false, order: "a0", createdAt: "2026-03-01T00:00:00.000Z", listId: "l",
+    dueDate: "2026-03-07", startDate: null, inMyDay: false, order: "a0", createdAt: "2026-03-01T00:00:00.000Z", listId: "l",
     listName: "작업", groupName: null, stepCount: 0, stepDoneCount: 0, assignee: null, repeat: null,
     attachmentCount: 0, remindAt: null, ...p,
   };

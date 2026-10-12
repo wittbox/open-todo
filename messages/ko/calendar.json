@@ -38,7 +38,8 @@
     "taskName": "작업 이름",
     "list": "목록",
     "submit": "추가",
-    "hint": "Enter 로 추가하고 이어서 입력 · Esc 로 닫기"
+    "hint": "Enter 로 추가하고 이어서 입력 · Esc 로 닫기",
+    "range": "{range} · {days}일"
   },
   "filter": {
     "title": "볼 목록",
@@ -63,5 +64,11 @@
     "nationalFoundation": "개천절",
     "hangul": "한글날",
     "christmas": "성탄절"
+  },
+  "span": {
+    "days": "{days}일",
+    "title": "{title} — {range} · {days}일 · {where}",
+    "resize": "{title} 기한 늘이기·줄이기",
+    "resizeHint": "끌어서 기한 바꾸기"
   }
 }

@@ -43,7 +43,7 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
    * 각자 따로 열고 닫게 두면 기한 달력 위에 반복 목록이 겹쳐 뜬다 —
    * 달력이 커지면서 눈에 띄게 됐다.
    */
-  const [picker, setPicker] = useState<null | "due" | "assign" | "repeat" | "remind">(null);
+  const [picker, setPicker] = useState<null | "due" | "start" | "assign" | "repeat" | "remind">(null);
   const toggle = (which: NonNullable<typeof picker>) =>
     setPicker((cur) => (cur === which ? null : which));
   const [customOpen, setCustomOpen] = useState(false);
@@ -145,6 +145,9 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
   }
 
   const due = task.dueDate ? dateOnlyFromString(task.dueDate) : null;
+  // 여러 날 작업(2026-10-13) — 시작일~기한. 시작일 줄은 기한이 있을 때만 보인다.
+  const start = task.startDate ? dateOnlyFromString(task.startDate) : null;
+  const spanDays = start && due ? Math.round((due.getTime() - start.getTime()) / 86_400_000) + 1 : 1;
   // 반복 문구와 기본 선택지는 기한에서 뽑는다. 기한이 없으면 오늘 기준.
   const repeatAnchor = due ?? todayDateOnly(new Date(), tz);
 
@@ -276,6 +279,21 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
             onClick={() => toggle("remind")}
             onClear={task.remindAt ? () => act(() => setReminder(task.id, null)) : undefined}
           />
+          {/* 시작 → 기한 순서(시작일 줄은 기한이 있을 때만) */}
+          {due && (
+            <DetailItem
+              icon="jump"
+              label={
+                start
+                  ? t("detail.startAt", { date: format.dateTime(start, DATE_ONLY), days: spanDays })
+                  : t("detail.setStart")
+              }
+              active={start != null}
+              disabled={!canWrite}
+              onClick={() => toggle("start")}
+              onClear={start ? () => act(() => updateTask(task.id, { startDate: null })) : undefined}
+            />
+          )}
           <DetailItem
             icon="calendar"
             label={due ? t("detail.dueAt", { date: format.dateTime(due, DATE_ONLY) }) : t("detail.setDue")}
@@ -308,7 +326,7 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
           )}
 
           {picker === "due" && (
-            <div className="absolute left-2 right-2 top-[92px] z-20 rounded-md border border-[#e1dfdd] bg-white py-1.5 shadow-[0_6.4px_14.4px_rgba(0,0,0,.132)]">
+            <div className={`absolute left-2 right-2 ${due ? "top-[138px]" : "top-[92px]"} z-20 rounded-md border border-[#e1dfdd] bg-white py-1.5 shadow-[0_6.4px_14.4px_rgba(0,0,0,.132)]`}>
               {[
                 { label: t("due.today"), days: 0 },
                 { label: t("due.tomorrow"), days: 1 },
@@ -349,8 +367,33 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
             </div>
           )}
 
+          {picker === "start" && due && (
+            <div className="absolute left-2 right-2 top-[92px] z-20 rounded-md border border-[#e1dfdd] bg-white py-1.5 shadow-[0_6.4px_14.4px_rgba(0,0,0,.132)]">
+              <p className="px-3.5 pb-1 pt-0.5 text-xs text-ink-2">
+                {t("detail.startHint", { date: format.dateTime(due, DATE_ONLY) })}
+              </p>
+              <Calendar
+                value={start ?? due}
+                onPick={(d) => {
+                  setPicker(null);
+                  act(() => updateTask(task.id, { startDate: dateOnlyToString(d) }));
+                }}
+                onClear={
+                  start
+                    ? () => {
+                        setPicker(null);
+                        act(() => updateTask(task.id, { startDate: null }));
+                      }
+                    : undefined
+                }
+                clearLabel={t("detail.clearStart")}
+              />
+            </div>
+          )}
+
           {picker === "repeat" && (
             <RepeatPicker
+              top={due ? 178 : 132}
               anchor={repeatAnchor}
               current={task.repeat}
               custom={customOpen}
@@ -648,12 +691,15 @@ function ReminderPicker({ due, onPick }: { due: Date | null; onPick: (at: string
 }
 
 function RepeatPicker({
+  top,
   anchor,
   current,
   custom,
   onCustom,
   onPick,
 }: {
+  /** 위에서 몇 px — 시작일 줄이 보이면 한 줄만큼 내려간다 */
+  top: number;
   anchor: Date;
   current: RepeatRule | null;
   custom: boolean;
@@ -674,7 +720,7 @@ function RepeatPicker({
     current.days.join() === a.days.join();
 
   return (
-    <div className="absolute left-2 right-2 top-[132px] z-20 rounded-md border border-[#e1dfdd] bg-white py-1.5 shadow-[0_6.4px_14.4px_rgba(0,0,0,.132)]">
+    <div style={{ top }} className="absolute left-2 right-2 z-20 rounded-md border border-[#e1dfdd] bg-white py-1.5 shadow-[0_6.4px_14.4px_rgba(0,0,0,.132)]">
       {!custom &&
         presetRules(anchor, loose(t), locale).map((p) => (
           <button

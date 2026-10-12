@@ -42,7 +42,7 @@ afterEach(cleanup);
 function detail(p: Partial<TaskDetail> = {}): TaskDetail {
   return {
     id: "t1", seq: 330, title: "월간 회의 일정 공지", note: null, isImportant: false, isCompleted: false,
-    completedAt: null, dueDate: "2026-08-18", inMyDay: false, order: "a0", createdAt: "2026-08-05T00:00:00.000Z",
+    completedAt: null, dueDate: "2026-08-18", startDate: null, inMyDay: false, order: "a0", createdAt: "2026-08-05T00:00:00.000Z",
     listId: "l1", listName: "2026년 9월", groupName: "운영", stepCount: 0, stepDoneCount: 0,
     assignee: null, repeat: null, attachmentCount: 0, remindAt: null,
     steps: [], attachments: [], listOwnerName: null,

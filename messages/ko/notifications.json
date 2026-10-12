@@ -25,6 +25,7 @@
   "items": {
     "REMINDER": "<b>{task}</b> 미리 알림",
     "DUE_TODAY": "<b>{task}</b> 기한이 오늘입니다",
+    "START_TODAY": "<b>{task}</b> 오늘 시작합니다",
     "ASSIGNED": "{actor}님이 <b>{task}</b> 을(를) 나에게 맡겼습니다",
     "SHARED": "{actor}님이 <b>{list}</b> 을(를) 공유했습니다",
     "REPORT_SEND_FAILED": "<b>{report}</b> 예약 메일을 보내지 못했습니다",

@@ -16,6 +16,8 @@ export type TaskItem = {
   completedAt: string | null;
   /** "YYYY-MM-DD" — 날짜 전용 값이라 문자열로 넘겨 클라이언트 타임존 영향을 없앤다 */
   dueDate: string | null;
+  /** 여러 날 작업의 시작일 "YYYY-MM-DD"(2026-10-13). 비어 있으면 하루짜리 — 기간은 시작일~기한 */
+  startDate: string | null;
   /** 이 사용자가 오늘 나의 하루에 올려 둔 작업인지 */
   inMyDay: boolean;
   order: string;
@@ -100,7 +102,7 @@ export async function getListView(userId: string, listId: string): Promise<ListV
         orderBy: { order: "asc" },
         select: {
           id: true, seq: true, title: true, note: true, isImportant: true, isCompleted: true,
-          completedAt: true, dueDate: true, order: true, createdAt: true,
+          completedAt: true, startDate: true, dueDate: true, order: true, createdAt: true,
           assignee: { select: { id: true, name: true, avatarColor: true } },
           repeatUnit: true, repeatEvery: true, repeatDays: true, remindAt: true,
           _count: { select: { attachments: true } },
@@ -147,6 +149,7 @@ export async function getListView(userId: string, listId: string): Promise<ListV
       isCompleted: t.isCompleted,
       completedAt: t.completedAt?.toISOString() ?? null,
       dueDate: toDateString(t.dueDate),
+    startDate: toDateString(t.startDate),
       inMyDay: t.myDayEntries.length > 0,
       order: t.order,
       createdAt: t.createdAt.toISOString(),
@@ -175,7 +178,7 @@ export async function getTaskDetail(userId: string, taskId: string): Promise<Tas
     where: { id: taskId },
     select: {
       id: true, seq: true, title: true, note: true, isImportant: true, isCompleted: true,
-      completedAt: true, dueDate: true, order: true, createdAt: true, listId: true,
+      completedAt: true, startDate: true, dueDate: true, order: true, createdAt: true, listId: true,
       list: {
         select: { name: true, ownerId: true, owner: { select: { name: true } }, group: { select: { name: true } } },
       },
@@ -204,6 +207,7 @@ export async function getTaskDetail(userId: string, taskId: string): Promise<Tas
     isCompleted: t.isCompleted,
     completedAt: t.completedAt?.toISOString() ?? null,
     dueDate: toDateString(t.dueDate),
+    startDate: toDateString(t.startDate),
     inMyDay: t.myDayEntries.length > 0,
     order: t.order,
     createdAt: t.createdAt.toISOString(),

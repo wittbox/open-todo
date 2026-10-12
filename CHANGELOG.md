@@ -20,6 +20,11 @@
 - The first day of a month gets a small month tag ("Oct") instead of a faded out-of-month look.
 - Each Sunday cell shows the ISO 8601 week number of its row (the week of that row's Monday).
 - The phone dot calendar follows the same five weeks.
+- Multi-day tasks: a task can have a start date as well as a due date. It is drawn as one bar across its days,
+  split per week with ◀ ▶ where it continues. Drag the bar to move the whole period, drag its right end to
+  change the due date, or drag across empty days to create a task for that range (mouse only).
+  The detail pane shows the start date above the due date; list rows show "10/13(Tue) ~ 10/16(Fri)".
+  A repeating multi-day task keeps its length, and the owner gets a "starts today" notification.
 
 ### Sidebar: groups and lists
 - "New group" opens a popover to name the group; it is created at the bottom of your groups, scrolled
