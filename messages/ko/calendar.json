@@ -69,6 +69,8 @@
     "days": "{days}일",
     "title": "{title} — {range} · {days}일 · {where}",
     "resize": "{title} 기한 늘이기·줄이기",
-    "resizeHint": "끌어서 기한 바꾸기"
+    "resizeHint": "끌어서 기한 바꾸기",
+    "extend": "{title} 여러 날로 늘이기",
+    "extendHint": "끌어서 여러 날로 늘이기"
   }
 }

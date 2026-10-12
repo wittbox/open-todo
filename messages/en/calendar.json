@@ -69,6 +69,8 @@
     "days": "{days, plural, one {# day} other {# days}}",
     "title": "{title} — {range} · {days, plural, one {# day} other {# days}} · {where}",
     "resize": "Change the due date of {title}",
-    "resizeHint": "Drag to change the due date"
+    "resizeHint": "Drag to change the due date",
+    "extend": "Extend {title} over several days",
+    "extendHint": "Drag to make it a multi-day task"
   }
 }

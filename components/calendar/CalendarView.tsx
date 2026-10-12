@@ -345,6 +345,12 @@ export function CalendarView({
       patch(t, { startDate: start, dueDate: addDaysKey(start, length) });
       return;
     }
+    if (kind === "resize") {
+      // 하루짜리 칩의 오른쪽 끝을 뒤 날로 끌면 여러 날 작업이 된다 — 원래 기한이 시작일(앞으로는 못 줄인다)
+      if (!t.dueDate || date <= t.dueDate) return;
+      patch(t, { startDate: t.dueDate, dueDate: date });
+      return;
+    }
     if (t.dueDate === date) return;
     patch(t, { dueDate: date });
   }
@@ -789,12 +795,12 @@ function DayCell({
       aria-label={holiday ? t("dayWithHoliday", { date: dateLabel, holiday }) : dateLabel}
       onClick={(e) => {
         // 칩·버튼을 누른 것은 제 할 일을 한다. 빈 곳만 '추가' 다.
-        if (!canAdd || (e.target as HTMLElement).closest("[data-chip],[data-span],button")) return;
+        if (!canAdd || (e.target as HTMLElement).closest("[data-chip],[data-span],[data-resize],button")) return;
         onAdd(rect());
       }}
       // 빈 곳을 누른 채 옆 칸으로 끌면 여러 날 고르기(2026-10-13)
       onPointerDown={(e) => {
-        if (e.button !== 0 || e.pointerType === "touch" || (e.target as HTMLElement).closest("[data-chip],[data-span],button")) return;
+        if (e.button !== 0 || e.pointerType === "touch" || (e.target as HTMLElement).closest("[data-chip],[data-span],[data-resize],button")) return;
         onRangeStart();
       }}
       onPointerEnter={onRangeEnter}
@@ -1042,16 +1048,48 @@ type ChipProps = {
 };
 
 function DraggableChip(props: ChipProps) {
+  const t = useTranslations("calendar");
   const draggable = props.canWrite && !props.task.isCompleted;
   const { setNodeRef, listeners, isDragging } = useDraggable({
     id: `T:${props.task.id}`,
     data: { taskId: props.task.id },
     disabled: !draggable,
   });
+  // 오른쪽 끝 손잡이 — 끌면 여러 날 작업으로 늘어난다(2026-10-13, PC만). 기한이 있는 칩에만.
+  const canResize = draggable && props.task.dueDate != null;
+  const {
+    setNodeRef: setResizeRef,
+    listeners: resizeRaw,
+    attributes: resizeAttributes,
+  } = useDraggable({ id: `RC:${props.task.id}`, data: { taskId: props.task.id, kind: "resize" }, disabled: !canResize });
   return (
-    <div ref={setNodeRef} {...listeners} className={draggable ? "touch-manipulation" : undefined}>
+    <div ref={setNodeRef} {...listeners} className={`relative ${draggable ? "touch-manipulation" : ""}`}>
       <ChipFace {...props} dragging={isDragging} />
+      {canResize && (
+        <span
+          ref={setResizeRef}
+          {...stopFirst(resizeRaw)}
+          {...resizeAttributes}
+          data-resize
+          aria-label={t("span.extend", { title: props.task.title })}
+          title={t("span.extendHint")}
+          className="absolute right-0 top-0 h-full w-2 cursor-ew-resize rounded-r-[3px] hover:bg-black/10 pointer-coarse:hidden"
+        />
+      )}
     </div>
+  );
+}
+
+/** 손잡이를 잡은 것이 바깥(칩·막대) 끌기로 번지지 않게 — dnd-kit 리스너 앞에서 전파를 끊는다 */
+function stopFirst(listeners: Record<string, unknown> | undefined) {
+  return Object.fromEntries(
+    Object.entries(listeners ?? {}).map(([k, fn]) => [
+      k,
+      (e: React.SyntheticEvent) => {
+        e.stopPropagation();
+        (fn as (e: React.SyntheticEvent) => void)(e);
+      },
+    ]),
   );
 }
 
@@ -1098,15 +1136,7 @@ function SpanBar({
   const days = daysBetweenKeys(task.startDate!, task.dueDate!) + 1;
   const range = `${shortDayLabel(dateOnlyFromString(task.startDate!), locale)} ~ ${shortDayLabel(dateOnlyFromString(task.dueDate!), locale)}`;
   // 손잡이를 잡은 것이 막대 끌기로 번지지 않게
-  const resizeListeners = Object.fromEntries(
-    Object.entries(resizeRaw ?? {}).map(([k, fn]) => [
-      k,
-      (e: React.SyntheticEvent) => {
-        e.stopPropagation();
-        (fn as (e: React.SyntheticEvent) => void)(e);
-      },
-    ]),
-  );
+  const resizeListeners = stopFirst(resizeRaw);
   return (
     <div
       ref={setMoveRef}

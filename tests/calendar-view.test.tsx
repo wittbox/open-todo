@@ -488,4 +488,15 @@ describe("여러 날 작업 (2026-10-13)", () => {
     expect(document.querySelector("[data-span]")).toBeNull();
     expect(cell("2026-09-09").querySelector("[data-chip]")).not.toBeNull();
   });
+
+  it("하루짜리 칩에도 끝 손잡이 — 완료한 것에는 없다", () => {
+    show({
+      tasks: [
+        task({ id: "one", title: "보고", dueDate: "2026-09-09" }),
+        task({ id: "done", title: "끝난 일", dueDate: "2026-09-10", isCompleted: true }),
+      ],
+    });
+    expect(screen.getByLabelText("보고 여러 날로 늘이기")).toBeTruthy();
+    expect(screen.queryByLabelText("끝난 일 여러 날로 늘이기")).toBeNull();
+  });
 });

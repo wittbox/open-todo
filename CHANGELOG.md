@@ -22,7 +22,8 @@
 - The phone dot calendar follows the same five weeks.
 - Multi-day tasks: a task can have a start date as well as a due date. It is drawn as one bar across its days,
   split per week with ◀ ▶ where it continues. Drag the bar to move the whole period, drag its right end to
-  change the due date, or drag across empty days to create a task for that range (mouse only).
+  change the due date (a one-day chip has the same handle — drag it to a later day to make it multi-day),
+  or drag across empty days to create a task for that range (mouse only).
   The detail pane shows the start date above the due date; list rows show "10/13(Tue) ~ 10/16(Fri)".
   A repeating multi-day task keeps its length, and the owner gets a "starts today" notification.
 
