@@ -36,7 +36,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const task = (n: number): SearchHit => ({ id: `t${n}`, seq: n, title: `로그인 작업 ${n}`, listId: "l1", listName: "백로그", isCompleted: false });
+const task = (n: number): SearchHit => ({ id: `t${n}`, seq: n, title: `로그인 작업 ${n}`, listId: "l1", listName: "백로그", isCompleted: false, hidden: false });
 const issue = (n: number, p: Partial<IssueSearchHit> = {}): IssueSearchHit => ({
   id: `i${n}`, ref: `BUG-${n}`, title: `로그인 이슈 ${n}`, status: "OPEN", projectName: "버그 리포트",
   href: `/projects/p1?tab=issues&issue=${n}`, inComment: false, ...p,

@@ -8,6 +8,7 @@ import { getMailProvider } from "@/lib/mail";
 import { appName } from "@/lib/brand-server";
 import { getUsersPrefs, prefsFromSettings } from "@/lib/prefs";
 import { zonedParts } from "@/lib/tz";
+import { VISIBLE_TASK } from "@/lib/queries/tasks";
 
 /**
  * 정해진 시각에 해야 하는 일.
@@ -52,11 +53,13 @@ export async function runTick(now: Date = new Date()): Promise<TickResult> {
       remindAt: { not: null, lte: now },
       OR: [{ remindedAt: null }, { remindedAt: { lt: prisma.task.fields.remindAt } }],
     },
-    select: { id: true, assigneeId: true, creatorId: true },
+    select: { id: true, assigneeId: true, creatorId: true, list: { select: { group: { select: { hiddenAt: true } } } } },
     take: 500,
   });
   for (const t of due) {
-    const userId = ownerOf(t);
+    // 숨긴 그룹(끝난 프로젝트)의 작업은 알리지 않되, 울린 것으로 표시해 둔다 — 나중에 다시 보이게 했을 때
+    // 지난 알림이 한꺼번에 쏟아지지 않게.
+    const userId = t.list.group?.hiddenAt != null ? null : ownerOf(t);
     if (userId) {
       await notify({ userId, kind: "REMINDER", taskId: t.id });
       result.reminders += 1;
@@ -69,7 +72,8 @@ export async function runTick(now: Date = new Date()): Promise<TickResult> {
   //    그만큼 넉넉히 읽고, 챙길 사람의 오늘과 같은 것만 남긴다.
   const utcToday = dateOnly(now.getUTCFullYear(), now.getUTCMonth() + 1, now.getUTCDate());
   const nearDue = await prisma.task.findMany({
-    where: { isCompleted: false, dueDate: { gte: addDays(utcToday, -1), lte: addDays(utcToday, 1) } },
+    // 숨긴 그룹의 작업은 빼고(VISIBLE_TASK)
+    where: { isCompleted: false, dueDate: { gte: addDays(utcToday, -1), lte: addDays(utcToday, 1) }, ...VISIBLE_TASK },
     select: { id: true, dueDate: true, assigneeId: true, creatorId: true },
     take: 1500,
   });
@@ -148,7 +152,8 @@ type Line = { title: string; note: string };
 async function digestFor(userId: string, today: Date, tz: string, locale: AppLocale, app: string): Promise<{ html: string; text: string } | null> {
   const t = translatorFor(locale);
   const format = formatterFor(locale, "UTC");
-  const mine = { OR: [{ assigneeId: userId }, { assigneeId: null, creatorId: userId }] };
+  // 내 몫이면서 숨긴 그룹(끝난 프로젝트)이 아닌 것
+  const mine = { OR: [{ assigneeId: userId }, { assigneeId: null, creatorId: userId }], ...VISIBLE_TASK };
 
   const [overdue, dueToday, reminders] = await Promise.all([
     prisma.task.findMany({

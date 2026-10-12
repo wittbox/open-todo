@@ -100,6 +100,18 @@ const PATHS: Record<string, React.ReactElement> = {
     </g>
   ),
   repeat: <path {...S} strokeLinecap="round" d="M4 10a6 6 0 016-6h8M18 4l-3-3M18 4l-3 3M20 14a6 6 0 01-6 6H6M6 20l3 3M6 20l3-3" />,
+  // 그룹 숨기기·보이기
+  eye: (
+    <g {...S} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </g>
+  ),
+  eyeOff: (
+    <g {...S} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.9 5.8A9.8 9.8 0 0112 5.5C18 5.5 21.5 12 21.5 12a17 17 0 01-3 3.9M6.3 7.3C3.9 9 2.5 12 2.5 12S6 18.5 12 18.5a9.6 9.6 0 004.4-1M9.9 9.9a3 3 0 004.2 4.2M3 3l18 18" />
+    </g>
+  ),
   // 이슈 — 깃대 + 깃발
   flag: <path {...S} strokeLinecap="round" strokeLinejoin="round" d="M5 21V4M5 4h11l-2 4 2 4H5" />,
   clip: <path {...S} strokeLinecap="round" d="M20 11l-8.5 8.5a4.6 4.6 0 01-6.5-6.5L13 4.5a3.2 3.2 0 014.5 4.5l-8 8a1.8 1.8 0 01-2.5-2.5l7.5-7.5" />,

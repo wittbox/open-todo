@@ -14,9 +14,25 @@ import { requestToday } from "@/lib/prefs";
  * 그 계산을 한 곳에 모아 둔다.
  */
 
-export type AccessibleList = { id: string; name: string; role: Role };
+export type AccessibleList = {
+  id: string;
+  name: string;
+  role: Role;
+  /** 숨긴 그룹에 든 목록 — includeHidden 일 때만 들어온다 */
+  hidden: boolean;
+};
 
-export async function getAccessibleLists(userId: string): Promise<AccessibleList[]> {
+/**
+ * 숨긴 그룹의 작업을 빼는 조건 — 기한 알림·아침 요약처럼 목록을 거치지 않고 작업을 바로 찾는 곳에서 쓴다.
+ * 받은편지함처럼 그룹이 없는 목록은 숨겨질 일이 없다.
+ */
+export const VISIBLE_TASK = { list: { NOT: { group: { is: { hiddenAt: { not: null } } } } } } as const;
+
+/**
+ * 내가 접근할 수 있는 목록. 기본은 **숨긴 그룹의 목록을 뺀다** — 나에게 할당됨·달력·주간보고서가 여기서 출발해
+ * 숨긴 그룹(끝난 프로젝트)의 작업이 그 화면들에 나오지 않는다. 검색처럼 숨긴 것도 찾아야 하면 includeHidden.
+ */
+export async function getAccessibleLists(userId: string, opts: { includeHidden?: boolean } = {}): Promise<AccessibleList[]> {
   const shares = await prisma.share.findMany({
     where: { granteeUserId: userId },
     select: { subjectType: true, subjectId: true, role: true },
@@ -34,8 +50,9 @@ export async function getAccessibleLists(userId: string): Promise<AccessibleList
         { id: { in: [...listRole.keys()] } },
         { groupId: { in: [...groupRole.keys()] } },
       ],
+      ...(opts.includeHidden ? {} : { NOT: { group: { is: { hiddenAt: { not: null } } } } }),
     },
-    select: { id: true, name: true, ownerId: true, groupId: true },
+    select: { id: true, name: true, ownerId: true, groupId: true, group: { select: { hiddenAt: true } } },
   });
 
   return lists.map((l) => ({
@@ -45,6 +62,7 @@ export async function getAccessibleLists(userId: string): Promise<AccessibleList
       l.ownerId === userId
         ? ("ADMIN" as Role)
         : (maxRole(l.groupId ? groupRole.get(l.groupId) : null, listRole.get(l.id)) ?? "VIEWER"),
+    hidden: l.group?.hiddenAt != null,
   }));
 }
 
@@ -234,6 +252,8 @@ export type SearchHit = {
   listId: string;
   listName: string;
   isCompleted: boolean;
+  /** 숨긴 그룹의 작업 — 검색에는 나오되 흐리게 */
+  hidden: boolean;
 };
 
 export type SearchResult = {
@@ -246,9 +266,11 @@ export async function searchTasks(userId: string, raw: string): Promise<SearchRe
   const q = raw.trim();
   if (q.length === 0) return { jump: null, hits: [] };
 
-  const lists = await getAccessibleLists(userId);
+  // 숨긴 그룹의 작업도 찾는다 — 끝난 프로젝트를 다시 찾아보는 것이 검색의 큰 쓰임이다.
+  const lists = await getAccessibleLists(userId, { includeHidden: true });
   const listIds = lists.map((l) => l.id);
   if (listIds.length === 0) return { jump: null, hits: [] };
+  const hiddenLists = new Set(lists.filter((l) => l.hidden).map((l) => l.id));
 
   // "1042", "#1042", 딥링크 URL 전체 모두 번호로 인식한다.
   const seqMatch = q.match(/^#?(\d{1,9})$/) ?? q.match(/\/t\/(\d{1,9})\/?$/);
@@ -279,6 +301,7 @@ export async function searchTasks(userId: string, raw: string): Promise<SearchRe
     listId: r.listId,
     listName: r.list.name,
     isCompleted: r.isCompleted,
+    hidden: hiddenLists.has(r.listId),
   });
 
   return {

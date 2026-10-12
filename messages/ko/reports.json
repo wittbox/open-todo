@@ -31,7 +31,17 @@
     "sendCount": "발송 {count}회",
     "sharedWithMe": "나에게 공유된 보고서 {count}개",
     "noneShared": "공유받은 보고서가 없습니다. 작성자가 발행한 뒤 공유해야 여기에 나타납니다.",
-    "readOnly": "읽기 전용"
+    "readOnly": "읽기 전용",
+    "tabsNav": "보고서 보기",
+    "tabMine": "내 보고서",
+    "tabTeam": "팀 보고서",
+    "otherWeek": "다른 주 쓰기",
+    "openWeek": "열기",
+    "made": " · 만듦",
+    "onlyCardWeeks": "이번 주·지난 주 것뿐입니다 — 위의 두 칸에서 여세요.",
+    "moreMine": "이전 보고서 {count}개 더 보기 ▾",
+    "moreShared": "공유받은 보고서 {count}개 더 보기 ▾",
+    "collapse": "접기 ▴"
   },
   "editor": {
     "draft": "초안",
@@ -150,5 +160,30 @@
     "retrying": "한 번 실패해 곧 다시 시도합니다 — {error}",
     "cancelSchedule": "예약 취소"
   },
-  "ungrouped": "그룹 없는 목록"
+  "ungrouped": "그룹 없는 목록",
+  "team": {
+    "empty": "아직 나에게 보고서를 공유한 사람이 없습니다. 팀원이 보고서를 공유하면 여기에 모입니다.",
+    "lead": "나에게 보고서를 공유한 <b>{count}명</b> — 발행된 보고서는 나에게 공유된 것만 열 수 있습니다.",
+    "views": "보기",
+    "byWeek": "주별 목록",
+    "table": "제출 현황 표",
+    "weeks": "주차",
+    "weekChip": "{range}{thisWeek, select, yes { 이번 주} other {}} · {published}/{total}",
+    "summary": "발행 {published} · 작성 중 {draft} · 없음 {none}",
+    "members": "팀원 보고서",
+    "member": "팀원",
+    "me": "(나)",
+    "counts": "완료 {done} · 진행 중 {inProgress} · 예정 {upcoming}",
+    "thisWeek": "이번 주",
+    "published": "발행됨",
+    "publishedShort": "발행",
+    "draft": "작성 중",
+    "noneShort": "없음",
+    "none": "아직 만들지 않음",
+    "notShared": "발행됨 — 공유받지 않아 볼 수 없습니다",
+    "legendPublished": "발행(누르면 열림)",
+    "legendLocked": "공유받지 않음",
+    "legendDraft": "발행 전",
+    "legendNone": "없음"
+  }
 }

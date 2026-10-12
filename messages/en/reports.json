@@ -31,7 +31,17 @@
     "sendCount": "sent {count, plural, one {# time} other {# times}}",
     "sharedWithMe": "{count, plural, one {# report} other {# reports}} shared with you",
     "noneShared": "No reports shared with you. They appear here once the author publishes and shares one.",
-    "readOnly": "Read only"
+    "readOnly": "Read only",
+    "tabsNav": "Report views",
+    "tabMine": "My reports",
+    "tabTeam": "Team reports",
+    "otherWeek": "Write another week",
+    "openWeek": "Open",
+    "made": " · started",
+    "onlyCardWeeks": "Only this week's and last week's — open them from the two cards above.",
+    "moreMine": "{count, plural, one {# earlier report} other {# earlier reports}} ▾",
+    "moreShared": "{count, plural, one {# more shared report} other {# more shared reports}} ▾",
+    "collapse": "Collapse ▴"
   },
   "editor": {
     "draft": "Draft",
@@ -150,5 +160,30 @@
     "retrying": "Failed once, trying again shortly — {error}",
     "cancelSchedule": "Cancel"
   },
-  "ungrouped": "Lists without a group"
+  "ungrouped": "Lists without a group",
+  "team": {
+    "empty": "Nobody has shared a report with you yet. When teammates share their reports, they gather here.",
+    "lead": "<b>{count, plural, one {# person} other {# people}}</b> share reports with you — published reports open only if they were shared with you.",
+    "views": "View",
+    "byWeek": "By week",
+    "table": "Submission table",
+    "weeks": "Weeks",
+    "weekChip": "{range}{thisWeek, select, yes { this week} other {}} · {published}/{total}",
+    "summary": "published {published} · writing {draft} · none {none}",
+    "members": "Team reports",
+    "member": "Member",
+    "me": "(me)",
+    "counts": "done {done} · in progress {inProgress} · upcoming {upcoming}",
+    "thisWeek": "this week",
+    "published": "Published",
+    "publishedShort": "Published",
+    "draft": "Writing",
+    "noneShort": "None",
+    "none": "Not started",
+    "notShared": "Published — not shared with you",
+    "legendPublished": "published (click to open)",
+    "legendLocked": "not shared with you",
+    "legendDraft": "not published yet",
+    "legendNone": "none"
+  }
 }

@@ -3,7 +3,7 @@ import { issueRef } from "@/lib/issues/format";
 import { getAccessibleLists } from "@/lib/queries/tasks";
 import { dateOnlyFromString, dateOnlyToString, dayRange } from "@/lib/date";
 import { toDateString } from "@/lib/queries/list";
-import { UNGROUPED_SCOPE_ID, type SourceTask } from "@/lib/report/aggregate";
+import { UNGROUPED_SCOPE_ID, type ReportContent, type SourceTask } from "@/lib/report/aggregate";
 import { getRequestPrefs } from "@/lib/prefs";
 import { translatorFor } from "@/i18n/server";
 import { getRequestTimeZone } from "@/lib/prefs";
@@ -276,6 +276,113 @@ export async function listReports(userId: string): Promise<ReportListItem[]> {
     sendCount: r._count.sends,
     sharedWithCount: shareCount.get(r.id) ?? 0,
   }));
+}
+
+/* ── 팀 보고서 ── */
+
+export type TeamCell = {
+  status: "none" | "draft" | "published";
+  /** 열 수 있을 때만 — 내 것이거나 나에게 공유된 발행본 */
+  reportId: string | null;
+  title: string | null;
+  publishedAt: string | null;
+  /** 열 수 있는 발행본의 구간별 작업 수 */
+  counts: { done: number; inProgress: number; upcoming: number } | null;
+};
+
+export type TeamMember = { userId: string; name: string; avatarColor: string; isMe: boolean };
+
+export type TeamReports = {
+  /** 나를 맨 앞에. 나에게 보고하는 사람이 없으면 빈 배열 */
+  members: TeamMember[];
+  /** 최근 주부터, "YYYY-MM-DD"(월요일) */
+  weeks: string[];
+  /** cells[userId][week] */
+  cells: Record<string, Record<string, TeamCell>>;
+};
+
+/**
+ * 나에게 보고하는 사람 — 지금까지 나에게 보고서를 한 번이라도 공유한 사람(팀장만 팀 보고서를 본다).
+ * 앱에는 직책이 없어 팀장을 알 수 없다. 대신 “보고서를 누구에게 공유하나” 가 곧 보고 관계다 —
+ * 팀원끼리는 서로 공유하지 않는 한 보이지 않고, 부서가 달라도 된다.
+ */
+export async function teamMemberIds(userId: string): Promise<string[]> {
+  const shares = await prisma.share.findMany({
+    where: { subjectType: "REPORT", granteeUserId: userId },
+    select: { subjectId: true },
+  });
+  if (shares.length === 0) return [];
+  const rows = await prisma.weeklyReport.findMany({
+    where: { id: { in: shares.map((s) => s.subjectId) }, authorId: { not: userId } },
+    select: { authorId: true },
+    distinct: ["authorId"],
+  });
+  return rows.map((r) => r.authorId);
+}
+
+/**
+ * 팀 보고서 — 나에게 보고하는 사람들이 주마다 보고서를 냈는지. 나를 맨 앞에 함께 둔다.
+ * 권한은 지금 규칙 그대로: 제목과 내용은 내 것이거나 나에게 공유된 발행본만. 나머지는 상태(발행됨·작성 중·없음)만 —
+ * 남의 초안은 열 수 없다.
+ */
+export async function getTeamReports(userId: string, weeks: Date[]): Promise<TeamReports> {
+  const weekKeys = weeks.map(dateOnlyToString);
+  const reporters = await teamMemberIds(userId);
+  if (reporters.length === 0) return { members: [], weeks: weekKeys, cells: {} };
+
+  const users = await prisma.user.findMany({
+    where: { id: { in: [userId, ...reporters] } },
+    select: { id: true, name: true, avatarColor: true },
+  });
+  const members: TeamMember[] = users
+    .map((u) => ({ userId: u.id, name: u.name, avatarColor: u.avatarColor, isMe: u.id === userId }))
+    .sort((a, b) => Number(b.isMe) - Number(a.isMe) || a.name.localeCompare(b.name, "ko"));
+
+  const reports = await prisma.weeklyReport.findMany({
+    where: { authorId: { in: members.map((m) => m.userId) }, weekStart: { in: weeks } },
+    select: { id: true, authorId: true, weekStart: true, title: true, publishedAt: true },
+  });
+  const shared = new Set(
+    (
+      await prisma.share.findMany({
+        where: { subjectType: "REPORT", granteeUserId: userId, subjectId: { in: reports.map((r) => r.id) } },
+        select: { subjectId: true },
+      })
+    ).map((s) => s.subjectId),
+  );
+  const canOpen = (r: (typeof reports)[number]) => r.authorId === userId || (r.publishedAt != null && shared.has(r.id));
+
+  // 내용(구간별 수)은 열 수 있는 발행본에서만 읽는다.
+  const openable = reports.filter((r) => r.publishedAt && canOpen(r)).map((r) => r.id);
+  const contents = new Map(
+    openable.length
+      ? (await prisma.weeklyReport.findMany({ where: { id: { in: openable } }, select: { id: true, contentJson: true } })).map(
+          (r) => [r.id, r.contentJson as ReportContent | null] as const,
+        )
+      : [],
+  );
+  const countsOf = (c: ReportContent | null | undefined) => {
+    if (!c?.sections) return null;
+    const n = (k: string) => c.sections.filter((s) => s.key === k).reduce((sum, s) => sum + s.groups.reduce((x, g) => x + g.tasks.length, 0), 0);
+    return { done: n("done"), inProgress: n("inProgress"), upcoming: n("upcoming") };
+  };
+
+  const cells: TeamReports["cells"] = {};
+  for (const m of members) {
+    cells[m.userId] = {};
+    for (const w of weekKeys) cells[m.userId][w] = { status: "none", reportId: null, title: null, publishedAt: null, counts: null };
+  }
+  for (const r of reports) {
+    const open = canOpen(r);
+    cells[r.authorId][dateOnlyToString(r.weekStart)] = {
+      status: r.publishedAt ? "published" : "draft",
+      reportId: open ? r.id : null,
+      title: open ? r.title : null,
+      publishedAt: r.publishedAt?.toISOString() ?? null,
+      counts: open && r.publishedAt ? countsOf(contents.get(r.id)) : null,
+    };
+  }
+  return { members, weeks: weekKeys, cells };
 }
 
 export type SharedReportItem = {

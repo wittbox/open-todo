@@ -24,7 +24,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { Icon, type IconName } from "@/components/icons";
 import { ContextMenu, RowMenuButton, type MenuAnchor, type MenuItem } from "@/components/ui/menu";
@@ -34,7 +34,7 @@ import type { SidebarData, SidebarGroup, SidebarList } from "@/lib/queries/sideb
 import type { SearchHit } from "@/lib/queries/tasks";
 import type { IssueSearchHit, SidebarSearchResult } from "@/lib/queries/issues";
 import { StatusPill } from "@/components/issues/IssueBits";
-import { createGroup, deleteGroup, renameGroup, reorderGroup } from "@/lib/actions/group";
+import { createGroup, deleteGroup, renameGroup, reorderGroup, setGroupHidden } from "@/lib/actions/group";
 import { NewGroupPopover, NewListPopover, type CreateTarget } from "./CreatePopover";
 import {
   createList,
@@ -103,6 +103,7 @@ type MenuState =
 export function Sidebar({ data }: { data: SidebarData }) {
   const t = useTranslations("nav");
   const titles = useTranslations("nav.titles");
+  const format = useFormatter();
   const router = useRouter();
   const activeKey = activeKeyOf(usePathname());
   const shell = useShell();
@@ -114,6 +115,10 @@ export function Sidebar({ data }: { data: SidebarData }) {
     for (const g of data.groups) for (const l of g.lists) m.set(l.id, l);
     for (const l of data.ungrouped) m.set(l.id, l);
     for (const l of data.shared) m.set(l.id, l);
+    // 숨긴 그룹의 목록도 ⋯ 메뉴를 쓴다
+    for (const g of data.hiddenGroups) for (const l of g.lists) m.set(l.id, l);
+    for (const g of data.hiddenShared.groups) for (const l of g.lists) m.set(l.id, l);
+    for (const l of data.hiddenShared.lists) m.set(l.id, l);
     return m;
   }, [data]);
 
@@ -136,7 +141,20 @@ export function Sidebar({ data }: { data: SidebarData }) {
     setLayout((prev) => ({ ...prev, containers: fn(prev.containers) }));
   const setGroupOrder = (next: string[]) => setLayout((prev) => ({ ...prev, groupOrder: next }));
 
-  const groupsById = useMemo(() => new Map(data.groups.map((g) => [g.id, g])), [data.groups]);
+  const groupsById = useMemo(
+    () => new Map([...data.groups, ...data.hiddenGroups].map((g) => [g.id, g])),
+    [data.groups, data.hiddenGroups],
+  );
+  // 사이드바 맨 아래 ‘숨긴 그룹’ 을 펼쳤는지, 그 안에서 펼친 그룹(둘 다 이 화면에서만 — 기본은 접힘)
+  const [hiddenOpen, setHiddenOpen] = useState(false);
+  const [hiddenExpanded, setHiddenExpanded] = useState<Set<string>>(new Set());
+  const toggleHiddenGroup = (id: string) =>
+    setHiddenExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   /* ── 접힘 상태 ── */
   const collapsedRaw = useSyncExternalStore(subscribeCollapse, readCollapseRaw, () => "[]");
@@ -394,6 +412,27 @@ export function Sidebar({ data }: { data: SidebarData }) {
 
   function groupMenuItems(group: SidebarGroup): MenuItem[] {
     const manage = group.role === "ADMIN";
+    // 숨긴 그룹: 보이기 · 삭제만. 이름 바꾸기는 보이게 한 뒤에(그 자리에서 고치는 칸은 보이는 그룹 줄에만 있다)
+    if (group.hiddenAt) {
+      return [
+        {
+          icon: "eye",
+          label: t("groupMenu.show"),
+          pending: manage ? undefined : t("noPermission"),
+          onSelect: () => act(() => setGroupHidden(group.id, false)),
+        },
+        { kind: "separator" },
+        {
+          icon: "trash",
+          label: t("groupMenu.delete"),
+          danger: true,
+          pending: !manage ? t("noPermission") : group.lists.length > 0 ? t("groupMenu.hasLists", { count: group.lists.length }) : undefined,
+          onSelect: () => {
+            if (window.confirm(t("groupMenu.confirmDelete", { name: group.name }))) act(() => deleteGroup(group.id));
+          },
+        },
+      ];
+    }
     return [
       {
         icon: "edit",
@@ -416,6 +455,18 @@ export function Sidebar({ data }: { data: SidebarData }) {
         onSelect: () => setSharing({ type: "GROUP", id: group.id }),
       },
       { kind: "separator" },
+      {
+        // 끝난 프로젝트를 치워 두기 — 지우지 않는다. 사이드바 맨 아래 ‘숨긴 그룹’ 으로 가고 작업은 달력·할 일·보고서에서 빠진다.
+        icon: "eyeOff",
+        label: t("groupMenu.hide"),
+        pending: manage ? undefined : t("noPermission"),
+        onSelect: () => {
+          if (
+            window.confirm(t("groupMenu.confirmHide", { name: group.name }))
+          )
+            act(() => setGroupHidden(group.id, true));
+        },
+      },
       {
         // 목록은 늘 그룹 안이라 '그룹 해제'(목록을 밖으로 꺼내기)는 없앴다. 빈 그룹만 지운다.
         icon: "trash",
@@ -665,6 +716,93 @@ export function Sidebar({ data }: { data: SidebarData }) {
                 />
               ))}
             </>
+          )}
+
+          {/* 숨긴 그룹 — 맨 아래 한 줄로 접어 두고, 펼치면 흐리게. 끌어 옮기지 않는다. */}
+          {data.hiddenGroups.length + data.hiddenShared.groups.length + data.hiddenShared.lists.length > 0 && (
+            <div data-hidden-groups="">
+              <div className="mx-4 my-1.5 h-px bg-side-border" />
+              <button
+                type="button"
+                aria-expanded={hiddenOpen}
+                onClick={() => setHiddenOpen((v) => !v)}
+                className="flex h-8 w-full items-center gap-3 px-4 text-left text-[12.5px] text-ink-2 hover:bg-side-hover"
+              >
+                <span className="grid w-[18px] shrink-0 place-items-center">
+                  <Icon name="eyeOff" size={15} />
+                </span>
+                <span className="flex-1">{t("hidden.title")}</span>
+                <span className="text-xs">
+                  {data.hiddenGroups.length + data.hiddenShared.groups.length + (data.hiddenShared.lists.length > 0 ? 1 : 0)}
+                </span>
+                <Icon name={hiddenOpen ? "chevronUp" : "chevronDown"} size={15} />
+              </button>
+              {hiddenOpen && (
+                <div className="opacity-70">
+                  {data.hiddenGroups.map((g) => {
+                    const open = hiddenExpanded.has(g.id);
+                    return (
+                      <div key={g.id} data-hidden-group={g.id}>
+                        <div className={`group relative flex h-9 items-center gap-3 pr-4 text-sm hover:bg-side-hover ${TOUCH_ROW}`}>
+                          <button
+                            type="button"
+                            onClick={() => toggleHiddenGroup(g.id)}
+                            aria-expanded={open}
+                            className="flex min-w-0 flex-1 items-center gap-3 pl-4 text-left"
+                          >
+                            <span className="grid w-[18px] shrink-0 place-items-center text-ink-2">
+                              <Icon name="group" size={17} />
+                            </span>
+                            <span className="min-w-0 flex-1 truncate">{g.name}</span>
+                            <span className="shrink-0 text-[11px] text-ink-3">
+                              {g.hiddenAt && t("hidden.since", { date: format.dateTime(new Date(g.hiddenAt), { year: "numeric", month: "numeric" }) })}
+                            </span>
+                          </button>
+                          <RowMenuButton label={t("hidden.menu", { name: g.name })} onOpen={(anchor) => setMenu({ kind: "group", id: g.id, anchor, view: "main" })} />
+                        </div>
+                        {open &&
+                          g.lists.map((l) => (
+                            <SharedListRow
+                              key={l.id}
+                              list={l}
+                              inGroup
+                              active={activeKey === `list:${l.id}`}
+                              onMenu={(anchor) => setMenu({ kind: "list", id: l.id, anchor, view: "main" })}
+                            />
+                          ))}
+                      </div>
+                    );
+                  })}
+                  {data.hiddenShared.groups.map((g) => {
+                    const open = hiddenExpanded.has(g.id);
+                    return (
+                      <div key={g.id}>
+                        <SharedGroupRow group={g} open={open} onToggle={() => toggleHiddenGroup(g.id)} />
+                        {open &&
+                          g.lists.map((l) => (
+                            <SharedListRow
+                              key={l.id}
+                              list={l}
+                              inGroup
+                              active={activeKey === `list:${l.id}`}
+                              onMenu={(anchor) => setMenu({ kind: "list", id: l.id, anchor, view: "main" })}
+                            />
+                          ))}
+                      </div>
+                    );
+                  })}
+                  {data.hiddenShared.lists.map((l) => (
+                    <SharedListRow
+                      key={l.id}
+                      list={l}
+                      inGroup={false}
+                      active={activeKey === `list:${l.id}`}
+                      onMenu={(anchor) => setMenu({ kind: "list", id: l.id, anchor, view: "main" })}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           <DragOverlay>
@@ -1032,7 +1170,7 @@ export function SearchBox() {
     if (row.kind === "task") {
       const hit = row.hit;
       return (
-        <button key={`t-${hit.id}`} onClick={() => go(row)} className={base}>
+        <button key={`t-${hit.id}`} onClick={() => go(row)} className={`${base} ${hit.hidden && !row.jump ? "opacity-60" : ""}`}>
           <span className={`mt-0.5 shrink-0 ${row.jump ? "text-link" : "text-ink-2"}`}>
             <Icon name={row.jump ? "jump" : hit.isCompleted ? "check" : "circle"} size={15} />
           </span>
@@ -1041,7 +1179,10 @@ export function SearchBox() {
               {row.jump && <span className="font-mono font-semibold text-link">#{hit.seq} </span>}
               {row.jump ? t("goTo", { title: hit.title }) : hit.title}
             </span>
-            <span className="block truncate text-[11px] text-ink-2">{hit.listName}</span>
+            <span className="block truncate text-[11px] text-ink-2">
+              {hit.listName}
+              {hit.hidden && <span className="text-ink-3">{t("inHidden")}</span>}
+            </span>
           </span>
         </button>
       );

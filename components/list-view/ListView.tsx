@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useOptimistic, useRef, useState, useTransition } from "react";
+import { setGroupHidden } from "@/lib/actions/group";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   DndContext,
@@ -233,6 +234,24 @@ export function ListView({ view }: { view: ListViewData }) {
         )
       }
     >
+      {view.hiddenGroup && (
+        <div data-hidden-banner="" className="mb-2 flex flex-wrap items-center gap-2 rounded bg-[#fff4ce] px-3 py-2 text-[12.5px] text-[#7a5a00]">
+          <Icon name="eyeOff" size={15} className="shrink-0" />
+          <span className="min-w-0 flex-1">
+            {t("list.hiddenBanner", { name: view.hiddenGroup.name })}
+          </span>
+          {view.hiddenGroup.canUnhide && (
+            <button
+              type="button"
+              onClick={() => act(() => setGroupHidden(view.hiddenGroup!.id, false))}
+              className="shrink-0 rounded bg-[#7a5a00] px-2.5 py-0.5 text-white"
+            >
+              {t("list.showGroup")}
+            </button>
+          )}
+        </div>
+      )}
+
       {error && (
         <div className="mb-2 flex items-start gap-2 rounded bg-white/90 px-3 py-2 text-xs text-danger">
           <span className="flex-1">{error}</span>

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { normalizeRule, type RepeatRule } from "@/lib/repeat";
-import { getListRole, ROLE_RANK, type Role } from "@/lib/permissions";
+import { getGroupRole, getListRole, ROLE_RANK, type Role } from "@/lib/permissions";
 import type { ListSortBy } from "@/app/generated/prisma/enums";
 import { requestToday } from "@/lib/prefs";
 
@@ -76,6 +76,8 @@ export type ListView = {
   role: Role;
   canWrite: boolean;
   canManage: boolean;
+  /** 숨긴 그룹의 목록이면 — 목록 위 띠에 “숨긴 그룹” 과 ‘보이기’(그룹을 관리할 수 있을 때) */
+  hiddenGroup: { id: string; name: string; canUnhide: boolean } | null;
   tasks: TaskItem[];
 };
 
@@ -93,7 +95,7 @@ export async function getListView(userId: string, listId: string): Promise<ListV
     select: {
       id: true, name: true, themeKey: true, groupId: true, sortBy: true,
       showCompleted: true, showSeq: true, isInbox: true,
-      group: { select: { name: true } },
+      group: { select: { name: true, hiddenAt: true } },
       tasks: {
         orderBy: { order: "asc" },
         select: {
@@ -132,6 +134,10 @@ export async function getListView(userId: string, listId: string): Promise<ListV
     role,
     canWrite: ROLE_RANK[role] >= ROLE_RANK.EDITOR,
     canManage: ROLE_RANK[role] >= ROLE_RANK.ADMIN,
+    hiddenGroup:
+      list.groupId && list.group?.hiddenAt
+        ? { id: list.groupId, name: list.group.name, canUnhide: (await getGroupRole(userId, list.groupId)) === "ADMIN" }
+        : null,
     tasks: list.tasks.map((t) => ({
       id: t.id,
       seq: t.seq,

@@ -37,6 +37,8 @@ export type SidebarGroup = {
   isReceived: boolean;
   role: Role;
   lists: SidebarList[];
+  /** 숨긴 때. 숨긴 그룹은 groups 가 아니라 hiddenGroups 로 간다 */
+  hiddenAt: string | null;
 };
 
 export type SidebarData = {
@@ -53,6 +55,10 @@ export type SidebarData = {
   shared: SidebarList[];
   /** 공유된 목록을 주인의 그룹 아래로 묶은 것. 화면은 이것으로 그린다(lib/shared-tree.ts). */
   sharedTree: SharedTree<SidebarList>;
+  /** 내가 숨긴 그룹 — 사이드바 맨 아래 ‘숨긴 그룹’. 최근에 숨긴 것부터 */
+  hiddenGroups: SidebarGroup[];
+  /** 주인이 숨긴 그룹에 든, 나에게 공유된 목록 — ‘숨긴 그룹’ 안에 주인 그룹 아래로 */
+  hiddenShared: SharedTree<SidebarList>;
   /** 내가 멤버인 프로젝트(보관 제외)와 안 읽은 원글 수 */
   projects: SidebarProject[];
 };
@@ -79,7 +85,7 @@ export async function getSidebarData(userId: string): Promise<SidebarData | null
   const [groups, lists] = await Promise.all([
     prisma.group.findMany({
       where: { OR: [{ ownerId: userId }, { id: { in: [...sharedGroupRole.keys()] } }] },
-      select: { id: true, name: true, order: true, isCollapsed: true, ownerId: true },
+      select: { id: true, name: true, order: true, isCollapsed: true, ownerId: true, hiddenAt: true },
     }),
     prisma.list.findMany({
       where: {
@@ -94,12 +100,14 @@ export async function getSidebarData(userId: string): Promise<SidebarData | null
         groupId: true, isInbox: true, ownerId: true,
         // 공유받은 목록에 "누가, 어느 그룹에서" 공유했는지 보여주기 위한 것.
         owner: { select: { name: true } },
-        group: { select: { name: true, order: true } },
+        group: { select: { name: true, order: true, hiddenAt: true } },
       },
     }),
   ]);
 
   const listIds = lists.map((l) => l.id);
+  // 숨긴 그룹(끝난 프로젝트)의 목록 — 나에게 할당됨 숫자에서 뺀다(그 화면에서도 빠진다).
+  const shownListIds = lists.filter((l) => !l.group?.hiddenAt).map((l) => l.id);
   const groupIds = groups.map((g) => g.id);
 
   // 목록별 미완료 개수 + "이 목록에 나 말고 다른 사람도 있는지"를 각각 한 번에
@@ -110,7 +118,7 @@ export async function getSidebarData(userId: string): Promise<SidebarData | null
       _count: { _all: true },
     }),
     prisma.task.count({
-      where: { listId: { in: listIds }, isCompleted: false, assigneeId: userId },
+      where: { listId: { in: shownListIds }, isCompleted: false, assigneeId: userId },
     }),
     prisma.notification.count({ where: { userId, readAt: null } }),
     prisma.share.findMany({
@@ -170,6 +178,7 @@ export async function getSidebarData(userId: string): Promise<SidebarData | null
   const ungrouped: SidebarList[] = [];
   const shared: SidebarList[] = [];
   const sharedRows: SharedRow<SidebarList>[] = [];
+  const hiddenSharedRows: SharedRow<SidebarList>[] = [];
 
   for (const l of visible) {
     const item = toSidebarList(l);
@@ -178,13 +187,19 @@ export async function getSidebarData(userId: string): Promise<SidebarData | null
       // 공유받은 목록은 소유자의 그룹 이름을 라벨로만 달고, groupId 는 지운다.
       // 내 사이드바에서 옮길 수 있는 대상이 아니기 때문이다.
       const received = { ...item, groupId: null };
-      shared.push(received);
-      sharedRows.push({
+      const row = {
         item: received,
         order: l.order,
         ownerName: l.owner.name,
         group: l.groupId && l.group ? { id: l.groupId, name: l.group.name, order: l.group.order } : null,
-      });
+      };
+      // 주인이 숨긴 그룹의 목록은 ‘숨긴 그룹’ 으로 — 공유받은 사람에게도 숨겨진다.
+      if (l.group?.hiddenAt) {
+        hiddenSharedRows.push(row);
+      } else {
+        shared.push(received);
+        sharedRows.push(row);
+      }
     } else if (l.groupId && visibleGroupIds.has(l.groupId)) {
       const arr = byGroup.get(l.groupId) ?? [];
       arr.push(item);
@@ -197,7 +212,7 @@ export async function getSidebarData(userId: string): Promise<SidebarData | null
   // 공유받은 그룹은 트리에 통째로 들어오지 않고, 그 안의 목록이 shared 로 간다.
   const ownGroups = groups.filter((g) => g.ownerId === userId);
 
-  const sidebarGroups: SidebarGroup[] = sortByOrder(ownGroups).map((g) => ({
+  const toGroup = (g: (typeof ownGroups)[number]): SidebarGroup => ({
     id: g.id,
     name: g.name,
     order: g.order,
@@ -205,7 +220,13 @@ export async function getSidebarData(userId: string): Promise<SidebarData | null
     isReceived: g.ownerId !== userId,
     role: groupRole.get(g.id) ?? "VIEWER",
     lists: sortByOrder(byGroup.get(g.id) ?? []),
-  }));
+    hiddenAt: g.hiddenAt?.toISOString() ?? null,
+  });
+  const sidebarGroups: SidebarGroup[] = sortByOrder(ownGroups.filter((g) => !g.hiddenAt)).map(toGroup);
+  const hiddenGroups: SidebarGroup[] = ownGroups
+    .filter((g) => g.hiddenAt)
+    .sort((a, b) => b.hiddenAt!.getTime() - a.hiddenAt!.getTime())
+    .map(toGroup);
 
   return {
     user,
@@ -216,6 +237,8 @@ export async function getSidebarData(userId: string): Promise<SidebarData | null
     groups: sidebarGroups,
     ungrouped: sortByOrder(ungrouped),
     sharedTree: arrangeShared(sharedRows),
+    hiddenGroups,
+    hiddenShared: arrangeShared(hiddenSharedRows),
     projects,
     shared: shared.sort(
       (a, b) =>

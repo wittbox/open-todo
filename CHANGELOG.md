@@ -86,6 +86,23 @@
 ### Weekly reports
 - The send-mail dialog no longer closes on a click outside it, so the recipients being typed aren't lost;
   it closes with Cancel or after sending.
+- **Team reports** tab for team leads. Your team is everyone who has shared a weekly report with you at
+  least once — so the tab appears only for people others report to, and teammates never see each other.
+  Two views: by week (one row per member: title, done/in-progress/upcoming counts, published time) and a
+  members × last-8-weeks submission table. Contents open only for your own reports and ones shared with
+  you; everything else shows its status only (published · writing · none).
+- A shorter report home: just this week and last week as cards, with a small "Write another week" picker
+  for older weeks. "My reports" and "Shared with me" show the five most recent; the rest expand by month.
+
+### Hidden groups
+- A group's ⋯ menu has **Hide group** — for a project that is over but comes back next year. The group
+  moves to a collapsed "Hidden groups" row at the bottom of the sidebar; **Show group** puts it back where
+  it was. Nothing is deleted.
+- Its tasks drop out of Assigned to me (and its count), the calendar, weekly reports, the morning digest,
+  due-today notifications and reminders, and repeating tasks there don't spawn their next occurrence.
+  Search still finds them (marked "hidden group"); opening a list shows a banner with **Show group**.
+- Hiding is done by people who can manage the group and applies to everyone it is shared with.
+- **Migration** `20261012000000_group_hidden` adds `Group.hiddenAt` (existing groups stay visible).
 
 ## 0.1.0 — 2026-09-21
 

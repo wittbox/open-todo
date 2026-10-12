@@ -53,7 +53,8 @@
     "groupIssues": "Issues {count}",
     "moreTasks": "{count} more tasks",
     "moreIssues": "{count} more issues",
-    "inComment": "· in a comment"
+    "inComment": "· in a comment",
+    "inHidden": " · hidden group"
   },
   "jump": {
     "title": "Go to task number",
@@ -76,7 +77,10 @@
     "share": "Share group",
     "delete": "Delete group",
     "confirmDelete": "Delete the group ''{name}''?",
-    "hasLists": "{count, plural, one {# list} other {# lists}} inside"
+    "hasLists": "{count, plural, one {# list} other {# lists}} inside",
+    "hide": "Hide group",
+    "show": "Show group",
+    "confirmHide": "Hide the group ‘{name}’?\n\nIt moves to “Hidden groups” at the bottom of the sidebar, and its tasks drop out of the calendar, Assigned to me, weekly reports and reminders — for everyone it is shared with. You can show it again any time."
   },
   "error": {
     "staleTitle": "A new version is out",
@@ -87,5 +91,10 @@
     "failedLine2": "If you keep seeing this, let us know.",
     "reload": "Reload",
     "retry": "Redraw this page only"
+  },
+  "hidden": {
+    "title": "Hidden groups",
+    "since": "hidden {date}",
+    "menu": "{name} menu"
   }
 }

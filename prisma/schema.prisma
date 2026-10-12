@@ -253,8 +253,12 @@ model Group {
   /// fractional index 문자열. 드래그 시 인접 두 값 사이만 갱신한다.
   order       String
   isCollapsed Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  /// 숨긴 그룹. 끝난 프로젝트를 치워 두는 것 — 사이드바 맨 아래 ‘숨긴 그룹’ 으로 가고,
+  /// 그 목록의 작업은 나의 하루·중요·계획된·나에게 할당됨·달력·주간보고서·아침 요약·기한 알림·반복에서 빠진다.
+  /// 주인이 숨기면 공유받은 사람에게도 숨겨진다. 지우는 것이 아니다 — 열어 보고 고치는 것은 그대로.
+  hiddenAt    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   lists List[]
 

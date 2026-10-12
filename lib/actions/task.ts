@@ -181,12 +181,15 @@ async function spawnNextOccurrence(taskId: string, completedOn: Date): Promise<v
       isImportant: true, dueDate: true, order: true,
       repeatUnit: true, repeatEvery: true, repeatDays: true,
       steps: { orderBy: { order: "asc" }, select: { title: true, order: true } },
+      list: { select: { group: { select: { hiddenAt: true } } } },
     },
   });
   const rule = normalizeRule(
     t?.repeatUnit ? { unit: t.repeatUnit, every: t.repeatEvery, days: t.repeatDays } : null,
   );
   if (!t || !rule) return;
+  // 숨긴 그룹(끝난 프로젝트)에서는 다음 회차를 만들지 않는다 — 쉬는 동안 일이 쌓이지 않게.
+  if (t.list.group?.hiddenAt) return;
 
   // 기한이 없는 반복은 완료한 날을 기준으로 다음을 잡는다.
   const anchor = t.dueDate ?? completedOn;
