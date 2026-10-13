@@ -308,6 +308,8 @@ d("이슈 (DB)", () => {
       const { GET: shared } = await import("@/app/api/shared-file/[id]/route");
       const dir = await mkdtemp(join(tmpdir(), "todo-issue-share-"));
       process.env.UPLOAD_DIR = dir;
+      // 링크 서명 열쇠 — CI 에는 .env 가 없다
+      process.env.SESSION_SECRET ??= "test-session-secret-0123456789abcdef0123456789";
       try {
         as(f.member.id);
         const it1 = ok(await A.createIssueAction({ projectId: f.priv.id, title: "링크 시험", body: "" }));
