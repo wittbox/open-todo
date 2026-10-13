@@ -9,10 +9,13 @@ import { GrowingTextarea, onEnter, oneLine } from "@/components/ui/GrowingTextar
 import { ImageViewer } from "@/components/ui/ImageViewer";
 import { MessageBody } from "@/components/project/MessageBody";
 import { MessageComposer } from "@/components/project/MessageComposer";
-import { Face, LabelChip, StatusPill } from "@/components/issues/IssueBits";
+import { Face, StatusPill } from "@/components/issues/IssueBits";
+import { LabelPicker } from "@/components/issues/LabelPicker";
 import { useIssueRefresh } from "@/components/issues/useIssueRefresh";
 import {
   addCommentAction,
+  addIssueLabelAction,
+  issueImageLinksAction,
   deleteCommentAction,
   deleteIssueAction,
   editCommentAction,
@@ -20,6 +23,8 @@ import {
   updateIssueAction,
 } from "@/lib/actions/issue";
 import { handledAuthFailure, runAction } from "@/lib/actions/session-guard";
+import { copyText } from "@/lib/clipboard";
+import { buildIssuePrompt } from "@/lib/issues/prompt";
 import type { ActionResult } from "@/lib/actions/_helpers";
 import { dateOnlyFromString } from "@/lib/date";
 import { DATE_ONLY } from "@/lib/format";
@@ -41,6 +46,7 @@ import type { IssuePriority, IssueStatus } from "@/app/generated/prisma/enums";
  */
 export function IssuePage({
   projectId,
+  projectName,
   stamp,
   issue,
   issueKey,
@@ -51,6 +57,8 @@ export function IssuePage({
   readOnly,
 }: {
   projectId: string;
+  /** Claude Code 용 복사의 머리말 */
+  projectName: string;
   /** 서버가 이 화면을 그릴 때의 '바뀜 표시' — 자동 새로고침이 비교한다 */
   stamp: string;
   issue: IssueDetail;
@@ -81,7 +89,6 @@ export function IssuePage({
   }
   const [editingBody, setEditingBody] = useState(false);
   const [body, setBody] = useState(issue.body);
-  const [editingLabels, setEditingLabels] = useState(false);
   // 좁은 화면에서는 필드를 칩 한 줄로 접어 두고, 누르면 펼친다 — 본문이 먼저 보이게.
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [viewer, setViewer] = useState<{ images: AttachmentItem[]; start: number } | null>(null);
@@ -108,14 +115,44 @@ export function IssuePage({
   }
   const patch = (p: Parameters<typeof updateIssueAction>[1], then?: () => void) => act(() => updateIssueAction(issue.id, p), then);
 
+  /** ‘＋ 새 라벨’ — 만들고 이 이슈에 바로 붙인다. 성공하면 true(입력칸을 닫는다). */
+  async function createLabel(name: string, color: string): Promise<boolean> {
+    const res = await runAction(() => addIssueLabelAction(issue.id, { name, color }));
+    if (!res.ok) {
+      if (!handledAuthFailure(res)) setError(res.error);
+      return false;
+    }
+    setError(null);
+    router.refresh();
+    return true;
+  }
+
   async function copyLink() {
     const url = `${window.location.origin}/i/${issue.ref}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setToast(t("pane.copied", { url }));
-    } catch {
-      setToast(t("pane.copyFailed", { url }));
+    setToast((await copyText(url)) ? t("pane.copied", { url }) : t("pane.copyFailed", { url }));
+  }
+
+  /** Claude Code 용 복사(2026-10-13) — 머리말 + 본문, 본문 사진은 24시간 임시 링크. 사진이 없으면 서버에 묻지 않는다. */
+  async function copyPrompt() {
+    const origin = window.location.origin;
+    let images: { name: string; size: number; url: string }[] = [];
+    if (issue.attachments.some((a) => isInlineImage(a.mimeType))) {
+      const res = await runAction(() => issueImageLinksAction(issue.id));
+      if (!res.ok) {
+        if (!handledAuthFailure(res)) setToast(t("pane.photoLinksFailed", { error: res.error }));
+        return;
+      }
+      images = res.data.map((im) => ({ name: im.name, size: im.size, url: origin + im.path }));
     }
+    const text = buildIssuePrompt({
+      issue,
+      projectName,
+      labels,
+      url: `${origin}/i/${issue.ref}`,
+      images,
+      t: t as unknown as Translate,
+    });
+    setToast((await copyText(text)) ? t("pane.copyPromptDone", { photos: images.length }) : t("pane.copyPromptFailed"));
   }
 
   async function sendComment(text: string, files: File[]): Promise<boolean> {
@@ -168,6 +205,15 @@ export function IssuePage({
               {t("pane.backToList")}
             </Link>
             <span className="flex-1" />
+            <button
+              type="button"
+              onClick={copyPrompt}
+              title={t("pane.copyPromptHint")}
+              className="inline-flex items-center gap-1 text-ink-2 hover:text-link"
+            >
+              <Icon name="copy" size={12} />
+              {t("pane.copyPrompt")}
+            </button>
             <button type="button" onClick={copyLink} className="inline-flex items-center gap-1 text-ink-2 hover:text-link">
               <Icon name="link" size={12} />
               {t("pane.copyLink")}
@@ -289,36 +335,18 @@ export function IssuePage({
                 </select>
               </Field>
 
-              <Field
-                label={t("pane.labels")}
-                action={
-                  canWrite && labels.length > 0 ? (
-                    <button type="button" onClick={() => setEditingLabels((v) => !v)} className="text-link hover:underline">
-                      {editingLabels ? t("pane.labelsDone") : issue.labelIds.length ? t("pane.labelsEdit") : t("pane.labelsAdd")}
-                    </button>
-                  ) : null
-                }
-              >
-                <span className="flex flex-wrap items-center gap-1">
-                  {(editingLabels ? labels : labels.filter((l) => issue.labelIds.includes(l.id))).map((l) => {
-                    const on = issue.labelIds.includes(l.id);
-                    return editingLabels ? (
-                      <button
-                        key={l.id}
-                        type="button"
-                        aria-pressed={on}
-                        disabled={pending}
-                        onClick={() => patch({ labelIds: on ? issue.labelIds.filter((x) => x !== l.id) : [...issue.labelIds, l.id] })}
-                        className={`rounded-full ${on ? "ring-2 ring-link ring-offset-1" : "opacity-50 hover:opacity-100"}`}
-                      >
-                        <LabelChip name={l.name} color={l.color} />
-                      </button>
-                    ) : (
-                      <LabelChip key={l.id} name={l.name} color={l.color} />
-                    );
-                  })}
-                  {!editingLabels && issue.labelIds.length === 0 && <span className="text-ink-3">{t("pane.none")}</span>}
-                </span>
+              <Field label={t("pane.labels")}>
+                {/* 늘 펼쳐 두고 누르면 붙이고 떼기, ‘＋ 새 라벨’ 은 이슈를 고칠 수 있는 사람 누구나(2026-10-13) */}
+                <LabelPicker
+                  labels={labels}
+                  selected={issue.labelIds}
+                  readOnly={!canWrite}
+                  disabled={pending}
+                  onToggle={(id) =>
+                    patch({ labelIds: issue.labelIds.includes(id) ? issue.labelIds.filter((x) => x !== id) : [...issue.labelIds, id] })
+                  }
+                  onCreate={createLabel}
+                />
               </Field>
 
               <Field label={t("pane.due")}>

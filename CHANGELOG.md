@@ -88,6 +88,18 @@
   separate "Issues" group (five each, "N more" to expand; closed ones last and dimmed). Typing `BUG-23` puts
   "Jump to" at the top.
 - **Migration** `20261008000000_issues` adds the issue tables and project columns; no existing data changes.
+- **Labels by clicking**: the label field is always laid out — a click attaches or removes a label, no more
+  Edit/Done. "+ New label" (name, colour, Enter) creates a project label and attaches it; anyone who can
+  write issues may create one, renaming and deleting stay with project admins. Same picker in New issue.
+- **Copy for Claude Code** on the issue page: the header (project, status, priority, labels, people, link)
+  and the description as Markdown. Photos in the description become links that open without signing in for
+  24 hours, so Claude Code can fetch them (see SECURITY.md). Comments and history are left out.
+
+### Photos
+- The photo viewer has **Copy** (and Ctrl+C) to put the photo on the clipboard as PNG; hidden on touch
+  devices, where the system long-press menu does it.
+- Text copy buttons (links, invite links, message text) fall back to the older copy command when the
+  clipboard API is refused, e.g. inside an app wrapper.
 
 ### Weekly reports
 - The send-mail dialog no longer closes on a click outside it, so the recipients being typed aren't lost;

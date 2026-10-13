@@ -4,8 +4,8 @@ import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Icon } from "@/components/icons";
 import { BTN_CLASS, Dialog, INPUT_CLASS, PRIMARY_CLASS } from "@/components/project/Dialog";
-import { LabelChip } from "@/components/issues/IssueBits";
-import { createIssueAction } from "@/lib/actions/issue";
+import { LabelPicker } from "@/components/issues/LabelPicker";
+import { createIssueAction, createIssueLabelAction } from "@/lib/actions/issue";
 import { handledAuthFailure, runAction } from "@/lib/actions/session-guard";
 import { checkFile, formatBytes, pastedImageName } from "@/lib/files/policy";
 import { PRIORITIES } from "@/lib/issues/format";
@@ -45,6 +45,9 @@ export function NewIssueDialog({
   const [body, setBody] = useState(from?.body ?? template);
   // 라벨은 미리 골라 두지 않는다 — 실수로 붙는 것보다 비어 있는 편이 낫다.
   const [labelIds, setLabelIds] = useState<string[]>([]);
+  // 이 창에서 새로 만든 라벨 — 창을 닫기 전까지 목록 끝에 붙여 둔다
+  const [madeLabels, setMadeLabels] = useState<IssueLabelItem[]>([]);
+  const allLabels = [...labels, ...madeLabels.filter((m) => !labels.some((l) => l.id === m.id))];
   const [priority, setPriority] = useState<IssuePriority>("NORMAL");
   const [assigneeId, setAssigneeId] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -63,6 +66,20 @@ export function NewIssueDialog({
     }
     setError(null);
     setFiles((prev) => [...prev, ...list]);
+  }
+
+  /** ‘＋ 새 라벨’ — 프로젝트에 만들고(같은 이름이 있으면 그것) 이 이슈에 고른다 */
+  async function createLabel(name: string, color: string): Promise<boolean> {
+    const res = await runAction(() => createIssueLabelAction(projectId, { name, color }));
+    if (!res.ok) {
+      if (!handledAuthFailure(res)) setError(res.error);
+      return false;
+    }
+    const made = res.data;
+    setError(null);
+    setMadeLabels((xs) => (xs.some((x) => x.id === made.id) ? xs : [...xs, made]));
+    setLabelIds((ids) => (ids.includes(made.id) ? ids : [...ids, made.id]));
+    return true;
   }
 
   async function submit() {
@@ -159,27 +176,17 @@ export function NewIssueDialog({
           </label>
         </div>
 
-        {labels.length > 0 && (
-          <div className="mt-2.5">
-            <div className="text-xs text-ink-2">{t("new.labels")}</div>
-            <div className="mt-1 flex flex-wrap gap-1.5">
-              {labels.map((l) => {
-                const on = labelIds.includes(l.id);
-                return (
-                  <button
-                    key={l.id}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => setLabelIds((ids) => (on ? ids.filter((x) => x !== l.id) : [...ids, l.id]))}
-                    className={`rounded-full ${on ? "ring-2 ring-link ring-offset-1" : "opacity-60 hover:opacity-100"}`}
-                  >
-                    <LabelChip name={l.name} color={l.color} />
-                  </button>
-                );
-              })}
-            </div>
+        <div className="mt-2.5">
+          <div className="text-xs text-ink-2">{t("new.labels")}</div>
+          <div className="mt-1">
+            <LabelPicker
+              labels={allLabels}
+              selected={labelIds}
+              onToggle={(id) => setLabelIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))}
+              onCreate={createLabel}
+            />
           </div>
-        )}
+        </div>
 
         <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[12.5px] text-ink-2">
           <button type="button" onClick={() => fileRef.current?.click()} className="inline-flex items-center gap-1.5 hover:text-ink">

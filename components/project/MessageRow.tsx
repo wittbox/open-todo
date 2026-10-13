@@ -7,6 +7,7 @@ import { MessageBody } from "@/components/project/MessageBody";
 import { MessageEditor } from "@/components/project/MessageEditor";
 import { ImageViewer } from "@/components/ui/ImageViewer";
 import Link from "next/link";
+import { copyText } from "@/lib/clipboard";
 import { formatBytes, isInlineImage } from "@/lib/files/policy";
 import { relativeShort, timeOf, type Translate } from "@/lib/projects/format";
 import type { MessageItem } from "@/lib/queries/project";
@@ -105,7 +106,7 @@ export function MessageRow({
     items.push({
       icon: "copy",
       label: t("message.copyText"),
-      onSelect: () => void navigator.clipboard?.writeText(messagePlainText(m, mentionLabels)).catch(() => {}),
+      onSelect: () => void copyText(messagePlainText(m, mentionLabels)),
     });
     const mine = !readOnly && m.isMine;
     const removable = !readOnly && m.canDelete;

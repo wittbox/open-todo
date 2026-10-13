@@ -8,6 +8,7 @@ import { MessageRow } from "@/components/project/MessageRow";
 import { ProjectHeader } from "@/components/project/ProjectHeader";
 import { NewIssueDialog } from "@/components/issues/NewIssueDialog";
 import { usePoll } from "@/components/project/usePoll";
+import { copyText } from "@/lib/clipboard";
 import { deleteMessage, editMessage, pinMessage } from "@/lib/actions/message";
 import { markProjectRead } from "@/lib/actions/project";
 import { sendMessage } from "@/components/project/send";
@@ -200,11 +201,7 @@ export function ProjectView({ initial, meId }: { initial: Member; meId: string }
 
   async function copyLink(id: string) {
     const url = `${window.location.origin}/projects/${initial.id}?msg=${id}`;
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      setError(t("stream.copyFailed", { url }));
-    }
+    if (!(await copyText(url))) setError(t("stream.copyFailed", { url }));
   }
 
   const pinned = roots.filter((m) => m.pinnedAt && !m.deletedAt);

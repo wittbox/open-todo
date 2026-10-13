@@ -220,6 +220,33 @@ d("이슈 (DB)", () => {
     });
   });
 
+  describe("이슈 화면에서 새 라벨 (2026-10-13)", () => {
+    it("멤버도 만들어 바로 붙인다 — 활동 기록이 남고, 같은 이름이면 있던 라벨을 쓴다", async () => {
+      as(f.member.id);
+      const before = (await getIssueDetail(f.member.id, f.priv.id, first.number))!;
+      const made = ok(await A.addIssueLabelAction(first.id, { name: " 화면 깨짐 ", color: "orange" }));
+      const after = (await getIssueDetail(f.member.id, f.priv.id, first.number))!;
+      expect(after.labelIds).toEqual([...before.labelIds, made.id]);
+      expect(after.events.filter((e) => e.kind === "LABELS").length).toBe(before.events.filter((e) => e.kind === "LABELS").length + 1);
+      const label = await prisma.issueLabel.findUniqueOrThrow({ where: { id: made.id } });
+      expect(label).toMatchObject({ name: "화면 깨짐", color: "orange", projectId: f.priv.id });
+
+      // 새 이슈 창에서 같은 이름 — 새로 만들지 않는다
+      const again = ok(await A.createIssueLabelAction(f.priv.id, { name: "화면 깨짐", color: "blue" }));
+      expect(again).toEqual({ id: made.id, name: "화면 깨짐", color: "orange" });
+    });
+
+    it("이름이 비면 안 되고, 프로젝트 밖 사람은 못 만든다. 이름·색 고치기는 여전히 관리자만", async () => {
+      as(f.member.id);
+      expect(errorOf(await A.createIssueLabelAction(f.priv.id, { name: "  ", color: "red" }))).toMatch(/이름/);
+      expect(errorOf(await A.saveLabelAction(f.priv.id, { name: "멤버가 고친 이름", color: "red" }))).not.toBeNull();
+      as(f.stranger.id);
+      expect(errorOf(await A.createIssueLabelAction(f.priv.id, { name: "외부", color: "red" }))).not.toBeNull();
+      expect(errorOf(await A.addIssueLabelAction(first.id, { name: "외부", color: "red" }))).not.toBeNull();
+      expect(await prisma.issueLabel.count({ where: { projectId: f.priv.id, name: "외부" } })).toBe(0);
+    });
+  });
+
   describe("지우기", () => {
     it("올린 사람이나 관리자만. 번호는 되돌리지 않는다", async () => {
       as(f.admin.id);
@@ -272,6 +299,54 @@ d("이슈 (DB)", () => {
       }
     });
   });
+  describe("Claude Code 용 복사 — 사진 임시 링크 (2026-10-13)", () => {
+    it("본문 사진만 링크가 생기고, 링크는 로그인 없이 열리되 서명·만료가 틀리면 404. 외부인은 링크를 못 만든다", async () => {
+      const { mkdtemp, rm } = await import("node:fs/promises");
+      const { tmpdir } = await import("node:os");
+      const { join } = await import("node:path");
+      const { saveFile } = await import("@/lib/files/storage");
+      const { GET: shared } = await import("@/app/api/shared-file/[id]/route");
+      const dir = await mkdtemp(join(tmpdir(), "todo-issue-share-"));
+      process.env.UPLOAD_DIR = dir;
+      try {
+        as(f.member.id);
+        const it1 = ok(await A.createIssueAction({ projectId: f.priv.id, title: "링크 시험", body: "" }));
+        const add = async (name: string, mimeType: string) => {
+          const { storageKey } = await saveFile(Buffer.from(name));
+          return prisma.attachment.create({ data: { issueId: it1.id, uploaderId: f.member.id, name, size: name.length, mimeType, storageKey } });
+        };
+        const png = await add("화면.png", "image/png");
+        await add("기록.pdf", "application/pdf");
+
+        const links = ok(await A.issueImageLinksAction(it1.id));
+        expect(links.map((l) => l.name)).toEqual(["화면.png"]);
+        const get = (path: string) => {
+          const id = decodeURIComponent(path.split("/")[3].split("?")[0]);
+          return shared(new Request(`https://todo.test${path}`), { params: Promise.resolve({ id }) } as never);
+        };
+        const okRes = await get(links[0].path);
+        expect(okRes.status).toBe(200);
+        expect(okRes.headers.get("content-type")).toBe("image/png");
+
+        // 서명을 바꾸거나, 다른 파일 id 에 같은 서명을 쓰면 404
+        expect((await get(links[0].path.replace(/s=./, "s=x"))).status).toBe(404);
+        const pdf = await prisma.attachment.findFirstOrThrow({ where: { issueId: it1.id, name: "기록.pdf" } });
+        expect((await get(links[0].path.replace(png.id, pdf.id))).status).toBe(404);
+        // 만료(25시간 뒤)
+        const { verifyFileLink } = await import("@/lib/files/share-link");
+        const q = new URLSearchParams(links[0].path.split("?")[1]);
+        expect(verifyFileLink(png.id, q.get("e"), q.get("s"))).toBe(true);
+        expect(verifyFileLink(png.id, q.get("e"), q.get("s"), Math.floor(Date.now() / 1000) + 25 * 3600)).toBe(false);
+
+        as(f.stranger.id);
+        expect(errorOf(await A.issueImageLinksAction(it1.id))).not.toBeNull();
+      } finally {
+        delete process.env.UPLOAD_DIR;
+        await rm(dir, { recursive: true, force: true });
+      }
+    });
+  });
+
   describe("메시지 → 이슈", () => {
     it("메시지의 파일을 복사해 붙이고(메시지에도 남는다), 메시지 아래에 이슈가 이어 보인다. 다른 프로젝트 메시지는 거절", async () => {
       const { mkdtemp, rm } = await import("node:fs/promises");

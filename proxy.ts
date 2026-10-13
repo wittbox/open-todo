@@ -35,6 +35,9 @@ const PUBLIC_PREFIXES = [
   "/auth",
   "/api/health",
   "/api/cron",
+  // 이슈 사진의 24시간 임시 링크(Claude Code 용 복사, 2026-10-13). 라우트가 서명·만료를 확인한다.
+  // 위의 보고서 링크와 달리 파일 하나·24시간으로 묶어 새도 오래 가지 않는다.
+  "/api/shared-file",
 ];
 
 function isPublic(pathname: string): boolean {

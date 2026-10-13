@@ -13,6 +13,10 @@
     "prev": "이전 사진",
     "next": "다음 사진",
     "actualSize": "누르면 원본 크기",
-    "fit": "누르면 화면 맞춤"
+    "fit": "누르면 화면 맞춤",
+    "copy": "복사",
+    "copied": "복사됨 ✓",
+    "copyFailed": "복사 안 됨",
+    "copyHint": "Ctrl+C 로 복사"
   }
 }

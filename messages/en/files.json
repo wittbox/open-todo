@@ -13,6 +13,10 @@
     "prev": "Previous photo",
     "next": "Next photo",
     "actualSize": "Click for actual size",
-    "fit": "Click to fit"
+    "fit": "Click to fit",
+    "copy": "Copy",
+    "copied": "Copied ✓",
+    "copyFailed": "Couldn't copy",
+    "copyHint": "Ctrl+C to copy"
   }
 }

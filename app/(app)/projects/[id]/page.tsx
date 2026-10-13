@@ -46,6 +46,7 @@ export default async function ProjectPage({ params, searchParams }: PageProps<"/
           <IssuePage
             key={detail.id}
             projectId={view.id}
+            projectName={view.name}
             stamp={stamp}
             issue={detail}
             issueKey={view.issues.key}

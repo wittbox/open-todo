@@ -8,6 +8,7 @@ import { PANE_CLASS } from "@/components/shell/shell";
 import { Calendar } from "@/components/ui/calendar";
 import { GrowingTextarea, onEnter, oneLine } from "@/components/ui/GrowingTextarea";
 import { ImageViewer } from "@/components/ui/ImageViewer";
+import { copyText } from "@/lib/clipboard";
 import { createStep, deleteAttachment, deleteStep, deleteTask, setAssignee, setReminder, setRepeat, updateStep, updateTask } from "@/lib/actions/task";
 import { addDays, dateOnlyFromString, dateOnlyToString, daysFromToday, isOverdue, todayDateOnly } from "@/lib/date";
 import { DATE_ONLY } from "@/lib/format";
@@ -136,12 +137,7 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
 
   async function copyLink() {
     const url = `${window.location.origin}/t/${task.seq}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setToast(t("detail.copied", { url }));
-    } catch {
-      setToast(t("detail.copyFailed", { url }));
-    }
+    setToast((await copyText(url)) ? t("detail.copied", { url }) : t("detail.copyFailed", { url }));
   }
 
   const due = task.dueDate ? dateOnlyFromString(task.dueDate) : null;

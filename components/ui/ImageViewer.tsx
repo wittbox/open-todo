@@ -12,11 +12,45 @@ import { formatBytes } from "@/lib/files/policy";
  * 화면에 맞춰 크게 띄우고, 같은 작업(또는 같은 메시지)의 사진끼리 ◀ ▶ · ← → · 옆으로 밀기로 넘긴다.
  * 사진을 누르면 원본 크기(스크롤로 훑기) ↔ 화면 맞춤. 작은 글씨가 찍힌 라벨·성적서 사진을 확인하려는 것.
  * 닫기: ✕ · Esc · 사진 바깥 누르기. 열려 있는 동안 뒤 화면은 스크롤되지 않는다.
+ * 복사(2026-10-13): ‘복사’ 버튼 · Ctrl+C 로 사진을 클립보드에 — 메일·메신저·문서에 붙여 넣으려는 것.
+ * 휴대폰(굵은 포인터)에서는 버튼을 숨긴다 — 기기마다 막는 방식이 달라, 길게 눌러 나오는 기본 메뉴를 쓴다.
  */
 
 export type ViewerImage = { id: string; name: string; size?: number; uploaderName?: string | null };
 
 const SWIPE_PX = 50;
+
+/**
+ * 사진을 클립보드에. 브라우저 클립보드가 확실히 받는 그림 형식은 PNG 뿐이라 JPG 등은 PNG 로 바꿔 넣는다.
+ * ClipboardItem 에 Promise 를 넘긴다 — Safari 는 누른 순간(사용자 동작) 안에서 write 를 불러야 받아 준다.
+ */
+export async function copyImageToClipboard(src: string): Promise<void> {
+  const png = (async () => {
+    const blob = await (await fetch(src)).blob();
+    if (blob.type === "image/png") return blob;
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext("2d")!.drawImage(img, 0, 0);
+      return await new Promise<Blob>((ok, fail) =>
+        canvas.toBlob((b) => (b ? ok(b) : fail(new Error("PNG conversion failed"))), "image/png"),
+      );
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  })();
+  await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
+}
+
+/** 이 브라우저가 그림 복사를 할 수 있나(https·최신 브라우저) */
+function canCopyImage() {
+  return typeof window !== "undefined" && typeof ClipboardItem !== "undefined" && !!navigator.clipboard?.write;
+}
 
 export function ImageViewer({
   images,
@@ -30,6 +64,9 @@ export function ImageViewer({
   const t = useTranslations("files.viewer");
   const [index, setIndex] = useState(() => Math.min(Math.max(start, 0), images.length - 1));
   const [zoom, setZoom] = useState(false);
+  const [copied, setCopied] = useState<null | "ok" | "fail">(null);
+  const [copyable] = useState(canCopyImage);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const touchX = useRef<number | null>(null);
   const many = images.length > 1;
@@ -39,7 +76,21 @@ export function ImageViewer({
     if (!many) return;
     setIndex((i) => (i + by + images.length) % images.length);
     setZoom(false);
+    setCopied(null);
   };
+
+  const copy = () => {
+    if (!copyable || !img) return;
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    copyImageToClipboard(`/api/files/${img.id}`).then(
+      () => setCopied("ok"),
+      () => setCopied("fail"),
+    );
+    copyTimer.current = setTimeout(() => setCopied(null), 2000);
+  };
+  useEffect(() => () => {
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+  }, []);
 
   useEffect(() => {
     const before = document.activeElement as HTMLElement | null;
@@ -57,6 +108,8 @@ export function ImageViewer({
       if (e.key === "Escape") onClose();
       else if (e.key === "ArrowLeft") go(-1);
       else if (e.key === "ArrowRight") go(1);
+      // Ctrl+C — 글자를 고르고 있으면 그 글자를 복사하게 둔다
+      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c" && !window.getSelection()?.toString()) copy();
       else return;
       e.preventDefault();
     };
@@ -91,6 +144,16 @@ export function ImageViewer({
         <span className="min-w-0 truncate font-semibold">{img.name}</span>
         {meta && <span className="shrink-0 text-xs text-[#c8c6c4]">{meta}</span>}
         <span className="flex-1" />
+        {copyable && (
+          <button
+            type="button"
+            onClick={copy}
+            aria-live="polite"
+            className={`${btn} pointer-coarse:hidden ${copied === "ok" ? "!bg-[#107c10]" : copied === "fail" ? "!bg-[#a4262c]" : ""}`}
+          >
+            {copied === "ok" ? t("copied") : copied === "fail" ? t("copyFailed") : t("copy")}
+          </button>
+        )}
         <a href={src} target="_blank" rel="noreferrer" className={`${btn} max-sm:hidden`}>
           {t("openInTab")}
         </a>
@@ -146,7 +209,10 @@ export function ImageViewer({
             {index + 1} / {images.length}
           </span>
         )}
-        <span className="ml-3 max-sm:hidden">{zoom ? t("fit") : t("actualSize")}</span>
+        <span className="ml-3 max-sm:hidden">
+          {zoom ? t("fit") : t("actualSize")}
+          {copyable && ` · ${t("copyHint")}`}
+        </span>
       </div>
     </div>,
     document.body,

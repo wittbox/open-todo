@@ -9,6 +9,7 @@ import {
   shareWithUser,
   updateShareRole,
 } from "@/lib/actions/share";
+import { copyText } from "@/lib/clipboard";
 import type { ShareState, UserHit } from "@/lib/queries/share";
 import type { ShareRole, ShareSubjectType } from "@/app/generated/prisma/enums";
 import { handledAuthFailure, runAction } from "@/lib/actions/session-guard";
@@ -101,12 +102,7 @@ export function ShareDialog({
 
   async function copyInvite(token: string) {
     const url = `${window.location.origin}/invite/${token}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setToast(t("copied"));
-    } catch {
-      setToast(t("copyFailed", { url }));
-    }
+    setToast((await copyText(url)) ? t("copied") : t("copyFailed", { url }));
   }
 
   const subjectLabel = t(`subject.${subject.type}`);

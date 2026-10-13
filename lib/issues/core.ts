@@ -4,6 +4,8 @@ import { notify } from "@/lib/notify";
 import { dateOnlyFromString, dateOnlyToString, todayDateOnly } from "@/lib/date";
 import { tokenIds } from "@/lib/mentions";
 import { readFileBytes, removeFile, saveFile } from "@/lib/files/storage";
+import { sharedFilePath } from "@/lib/files/share-link";
+import { isInlineImage } from "@/lib/files/policy";
 import { checkFiles, prepareBody, requireOpen, type IncomingFile } from "@/lib/projects/messages";
 import { ActionError } from "@/lib/actions/_helpers";
 import { DEFAULT_LABELS, LABEL_COLOR_KEYS, normalizeIssueKey, PRIORITIES, STATUSES } from "@/lib/issues/format";
@@ -501,6 +503,57 @@ export async function saveLabel(
     return { id: input.id };
   }
   return prisma.issueLabel.create({ data: { projectId, name, color }, select: { id: true } });
+}
+
+/**
+ * 이슈 화면·새 이슈 창의 ‘＋ 새 라벨’(2026-10-13).
+ * 이슈를 쓸 수 있는 사람(프로젝트 write)이면 누구나 만든다(사용자 결정). 이름·색 고치기와 지우기는 지금처럼 관리자만(설정 화면).
+ * 같은 이름이 이미 있으면 새로 만들지 않고 그 라벨을 돌려준다.
+ */
+export async function createIssueLabel(
+  userId: string,
+  projectId: string,
+  input: { name: string; color: string },
+): Promise<{ id: string; name: string; color: string }> {
+  await assertCan(userId, "write", { kind: "project", id: projectId });
+  await requireOpen(projectId);
+  await requireIssuesEnabled(projectId);
+  const name = input.name.trim().slice(0, 30);
+  if (!name) throw ActionError.key("issues.errors.labelName");
+  const color = (LABEL_COLOR_KEYS as string[]).includes(input.color) ? input.color : "gray";
+  const select = { id: true, name: true, color: true } as const;
+  return (
+    (await prisma.issueLabel.findFirst({ where: { projectId, name }, select })) ??
+    (await prisma.issueLabel.create({ data: { projectId, name, color }, select }))
+  );
+}
+
+/** 이슈 화면의 ‘＋ 새 라벨’ — 만들고(또는 같은 이름을 찾아) 그 이슈에 바로 붙인다. 붙이기는 updateIssue 를 거쳐 활동 기록이 남는다. */
+export async function addIssueLabel(
+  userId: string,
+  issueId: string,
+  input: { name: string; color: string },
+): Promise<{ id: string }> {
+  const { issue } = await issueFor(userId, issueId, "write");
+  const { id } = await createIssueLabel(userId, issue.projectId, input);
+  const current = await prisma.issueLabelLink.findMany({ where: { issueId }, select: { labelId: true } });
+  const ids = current.map((c) => c.labelId);
+  if (!ids.includes(id)) await updateIssue(userId, issueId, { labelIds: [...ids, id] });
+  return { id };
+}
+
+/**
+ * ‘Claude Code 용 복사’ 의 사진 링크(2026-10-13) — 이슈 본문에 붙은 그림마다 24시간 임시 링크.
+ * 이슈를 볼 수 있는 사람이면 만든다(그 사람이 이미 보는 사진을 밖으로 가져가는 것과 같다). 댓글 사진은 넣지 않는다(본문만 복사).
+ */
+export async function issueImageLinks(userId: string, issueId: string): Promise<{ name: string; size: number; path: string }[]> {
+  await issueFor(userId, issueId, "read");
+  const files = await prisma.attachment.findMany({
+    where: { issueId },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, name: true, size: true, mimeType: true },
+  });
+  return files.filter((f) => isInlineImage(f.mimeType)).map((f) => ({ name: f.name, size: f.size, path: sharedFilePath(f.id) }));
 }
 
 /** 라벨 지우기 — 이슈에서도 빠진다(활동 기록의 옛 이름은 남는다). */

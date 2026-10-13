@@ -166,6 +166,50 @@ describe("첨부 사진 모달", () => {
   });
 });
 
+describe("사진 복사 (2026-10-13)", () => {
+  const attachments = [file("p1", "현장 사진 1.jpg", "image/jpeg"), file("p2", "라벨.png", "image/png")];
+  let write: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    write = vi.fn(async () => {});
+    vi.stubGlobal("ClipboardItem", class {
+      constructor(public items: Record<string, Promise<Blob>>) {}
+    });
+    Object.defineProperty(navigator, "clipboard", { value: { write }, configurable: true });
+    vi.stubGlobal("fetch", vi.fn(async () => ({ blob: async () => new Blob(["png"], { type: "image/png" }) })));
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    Reflect.deleteProperty(navigator, "clipboard");
+  });
+
+  it("‘복사’ 를 누르면 PNG 로 클립보드에 넣고 ‘복사됨 ✓’", async () => {
+    render(<DetailPane task={detail({ attachments })} canWrite />);
+    fireEvent.click(screen.getByRole("button", { name: "라벨.png 보기" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "복사" }));
+    expect(await screen.findByText("복사됨 ✓")).toBeTruthy();
+    expect(fetch).toHaveBeenCalledWith("/api/files/p2");
+    const [[items]] = write.mock.calls as unknown as [[{ items: Record<string, Promise<Blob>> }[]]];
+    expect((await items[0].items["image/png"]).type).toBe("image/png");
+  });
+
+  it("Ctrl+C 로도 복사, 실패하면 ‘복사 안 됨’", async () => {
+    write.mockRejectedValueOnce(new Error("denied"));
+    render(<DetailPane task={detail({ attachments })} canWrite />);
+    fireEvent.click(screen.getByRole("button", { name: "라벨.png 보기" }));
+    fireEvent.keyDown(window, { key: "c", ctrlKey: true });
+    expect(await screen.findByText("복사 안 됨")).toBeTruthy();
+    expect(write).toHaveBeenCalledTimes(1);
+  });
+
+  it("그림 복사를 못 하는 브라우저면 버튼이 없다", () => {
+    vi.unstubAllGlobals();
+    render(<DetailPane task={detail({ attachments })} canWrite />);
+    fireEvent.click(screen.getByRole("button", { name: "라벨.png 보기" }));
+    expect(within(screen.getByRole("dialog")).queryByRole("button", { name: "복사" })).toBeNull();
+  });
+});
+
 describe("프로젝트 메시지의 사진도 같은 모달", () => {
   it("사진을 누르면 모달 — 그 메시지의 사진끼리 넘기고, 파일은 지금처럼 링크", async () => {
     const { MessageRow } = await import("@/components/project/MessageRow");

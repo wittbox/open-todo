@@ -4,11 +4,14 @@ import { revalidatePath } from "next/cache";
 import { requireUserId } from "@/lib/session";
 import {
   addComment,
+  addIssueLabel,
+  createIssueLabel,
   createIssue,
   deleteComment,
   deleteIssue,
   deleteLabel,
   editComment,
+  issueImageLinks,
   saveLabel,
   setWatching,
   updateIssue,
@@ -17,6 +20,7 @@ import {
 } from "@/lib/issues/core";
 import { run, type ActionResult } from "@/lib/actions/_helpers";
 import type { IssuePriority } from "@/app/generated/prisma/enums";
+import type { IssueLabelItem } from "@/lib/queries/issues";
 
 /**
  * 이슈 동작. 규칙은 lib/issues/core.ts 에 있고 여기는 로그인 확인과 화면 갱신만.
@@ -112,6 +116,34 @@ export async function saveLabelAction(projectId: string, input: { id?: string; n
     const r = await saveLabel(userId, projectId, input);
     refresh();
     return r;
+  });
+}
+
+/** 새 이슈 창에서 새 라벨 만들기 — 이슈를 쓸 수 있는 사람 누구나. 같은 이름이 있으면 그것을 돌려준다. */
+export async function createIssueLabelAction(projectId: string, input: { name: string; color: string }): Promise<ActionResult<IssueLabelItem>> {
+  return run(async () => {
+    const userId = await requireUserId();
+    const r = await createIssueLabel(userId, projectId, input);
+    refresh();
+    return r;
+  });
+}
+
+/** 이슈 화면에서 새 라벨을 만들어 바로 붙인다 — 이슈를 고칠 수 있는 사람 누구나 */
+export async function addIssueLabelAction(issueId: string, input: { name: string; color: string }): Promise<ActionResult<{ id: string }>> {
+  return run(async () => {
+    const userId = await requireUserId();
+    const r = await addIssueLabel(userId, issueId, input);
+    refresh();
+    return r;
+  });
+}
+
+/** ‘Claude Code 용 복사’ — 본문 사진의 24시간 임시 링크(경로만, 주소는 화면이 붙인다) */
+export async function issueImageLinksAction(issueId: string): Promise<ActionResult<{ name: string; size: number; path: string }[]>> {
+  return run(async () => {
+    const userId = await requireUserId();
+    return issueImageLinks(userId, issueId);
   });
 }
 

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import type { IssueDetail } from "@/lib/queries/issues";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { IssueDetail, IssueLabelItem } from "@/lib/queries/issues";
 import type { ProjectMemberItem } from "@/lib/queries/project";
 
 /**
@@ -21,11 +21,13 @@ vi.mock("next/link", () => ({
     </a>
   ),
 }));
-const calls = vi.hoisted(() => ({ update: vi.fn() }));
+const calls = vi.hoisted(() => ({ update: vi.fn(), addLabel: vi.fn() }));
 vi.mock("@/lib/actions/issue", () => {
   const ok = async () => ({ ok: true, data: null });
   return {
     updateIssueAction: async (...a: unknown[]) => (calls.update(...a), { ok: true, data: null }),
+    addIssueLabelAction: async (...a: unknown[]) => (calls.addLabel(...a), { ok: true, data: { id: "new" } }),
+    issueImageLinksAction: async () => ({ ok: true, data: [{ name: "화면.png", size: 2048, path: "/api/shared-file/f1?e=9&s=sig" }] }),
     addCommentAction: ok, deleteCommentAction: ok, deleteIssueAction: ok, editCommentAction: ok, setWatchingAction: ok,
   };
 });
@@ -33,7 +35,10 @@ vi.mock("@/lib/actions/session-guard", () => ({ runAction: (fn: () => unknown) =
 
 const { IssuePage } = await import("@/components/issues/IssuePage");
 
-beforeEach(() => calls.update.mockClear());
+beforeEach(() => {
+  calls.update.mockClear();
+  calls.addLabel.mockClear();
+});
 afterEach(cleanup);
 
 const person = (id: string, name: string) => ({ id, name, avatarColor: "#2564cf" });
@@ -51,10 +56,16 @@ function issue(p: Partial<IssueDetail> = {}): IssueDetail {
   };
 }
 
-const show = (i: IssueDetail, o: { meId?: string; isAdmin?: boolean; readOnly?: boolean } = {}) =>
+const show = (i: IssueDetail, o: { meId?: string; isAdmin?: boolean; readOnly?: boolean; labels?: IssueLabelItem[] } = {}) =>
   render(
-    <IssuePage projectId="p1" stamp="0" issue={i} issueKey="BUG" labels={[]} members={MEMBERS} meId={o.meId ?? "rep"} isAdmin={o.isAdmin ?? false} readOnly={o.readOnly ?? false} />,
+    <IssuePage projectId="p1" projectName="시험 프로젝트" stamp="0" issue={i} issueKey="BUG" labels={o.labels ?? []} members={MEMBERS} meId={o.meId ?? "rep"} isAdmin={o.isAdmin ?? false} readOnly={o.readOnly ?? false} />,
   );
+
+const LABELS: IssueLabelItem[] = [
+  { id: "bug", name: "버그", color: "red" },
+  { id: "imp", name: "개선", color: "yellow" },
+  { id: "q", name: "질문", color: "blue" },
+];
 
 describe("이슈 페이지", () => {
   it("해결됨이면 보고자에게 '확인하고 닫기' — 누르면 닫힘으로", () => {
@@ -73,7 +84,7 @@ describe("이슈 페이지", () => {
 
   it("자동 새로고침으로 남이 바꾼 제목은 따라가고, 내가 고치던 제목은 두고", () => {
     const pane = (i: IssueDetail) => (
-      <IssuePage projectId="p1" stamp="0" issue={i} issueKey="BUG" labels={[]} members={MEMBERS} meId="rep" isAdmin={false} readOnly={false} />
+      <IssuePage projectId="p1" projectName="시험 프로젝트" stamp="0" issue={i} issueKey="BUG" labels={[]} members={MEMBERS} meId="rep" isAdmin={false} readOnly={false} />
     );
     const { rerender } = render(pane(issue()));
     const input = () => screen.getByRole("textbox", { name: "이슈 제목" }) as HTMLTextAreaElement;
@@ -174,6 +185,57 @@ describe("이슈 페이지", () => {
     show(issue({ sourceMessageId: "m1" }));
     expect(screen.getByRole("link", { name: "← 이슈 목록" }).getAttribute("href")).toBe("/projects/p1?tab=issues");
     expect(screen.getByRole("link", { name: /원래 메시지/ }).getAttribute("href")).toBe("/projects/p1?msg=m1");
+  });
+});
+
+describe("라벨 고르기 (2026-10-13)", () => {
+  it("늘 펼쳐 두고 누르면 붙이고 떼기 — ‘고치기’·‘다 됐음’ 이 없다", () => {
+    show(issue({ labelIds: ["bug"] }), { labels: LABELS });
+    expect(screen.queryByRole("button", { name: "고치기" })).toBeNull();
+    expect(screen.getByRole("button", { name: "✓버그" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "개선" }));
+    expect(calls.update).toHaveBeenLastCalledWith("i1", { labelIds: ["bug", "imp"] });
+    cleanup(); // 저장 중에는 잠기므로 새로 그려서 떼기를 본다
+    show(issue({ labelIds: ["bug"] }), { labels: LABELS });
+    fireEvent.click(screen.getByRole("button", { name: "✓버그" }));
+    expect(calls.update).toHaveBeenLastCalledWith("i1", { labelIds: [] });
+  });
+
+  it("‘＋ 새 라벨’ — 이름을 쓰고 Enter 면 만들고 붙인다(아직 안 쓴 색이 골라져 있다)", async () => {
+    show(issue(), { labels: LABELS });
+    fireEvent.click(screen.getByRole("button", { name: "＋ 새 라벨" }));
+    expect(screen.getByRole("radio", { checked: true }).getAttribute("aria-label")).toBe("orange");
+    fireEvent.change(screen.getByLabelText("새 라벨 이름"), { target: { value: "화면 깨짐" } });
+    fireEvent.keyDown(screen.getByLabelText("새 라벨 이름"), { key: "Enter" });
+    expect(calls.addLabel).toHaveBeenCalledWith("i1", { name: "화면 깨짐", color: "orange" });
+    await waitFor(() => expect(screen.queryByLabelText("새 라벨 이름")).toBeNull());
+  });
+
+  it("읽기만 하면 붙은 라벨만, 새 라벨 버튼 없음", () => {
+    show(issue({ labelIds: ["q"] }), { labels: LABELS, readOnly: true });
+    expect(screen.getByText("질문")).toBeTruthy();
+    expect(screen.queryByText("개선")).toBeNull();
+    expect(screen.queryByRole("button", { name: "＋ 새 라벨" })).toBeNull();
+  });
+});
+
+describe("Claude Code 용 복사 (2026-10-13)", () => {
+  it("머리말·본문을 마크다운으로, 본문 사진은 임시 링크로 복사한다", async () => {
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    try {
+      show(issue({ attachments: [{ id: "f1", name: "화면.png", size: 2048, mimeType: "image/png", uploaderName: null, createdAt: "" }] }));
+      fireEvent.click(screen.getByRole("button", { name: "Claude Code 용 복사" }));
+      await waitFor(() => expect(writeText).toHaveBeenCalled());
+      const text = (writeText.mock.calls[0] as unknown as [string])[0];
+      expect(text).toContain("# BUG-22 회차가 두 번 생김");
+      expect(text).toContain("- 프로젝트: 시험 프로젝트 · 상태: 열림 · 우선순위: 높음");
+      expect(text).toContain("## 재현 순서");
+      expect(text).toContain(`- 화면.png (2 KB): ${window.location.origin}/api/shared-file/f1?e=9&s=sig`);
+      expect(await screen.findByText(/사진 1장은 24시간 동안 열리는 링크/)).toBeTruthy();
+    } finally {
+      Reflect.deleteProperty(navigator, "clipboard");
+    }
   });
 });
 

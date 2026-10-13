@@ -58,6 +58,12 @@ Worth knowing before you dig, so you don't spend time on ground that's covered:
   can't be used as a relay.
 - On an open-sign-up install, people search needs the full email address, so the user list
   can't be enumerated.
+- *Copy for Claude Code* gives each photo in an issue description a link under
+  `/api/shared-file/` that works without signing in for 24 hours. The link carries an expiry
+  and an HMAC derived from `SESSION_SECRET`; only images attached to an issue are served, and
+  anything else (wrong signature, expired, another kind of file) is a 404. Nothing is stored,
+  so a link can't be revoked early — delete the attachment, or rotate `SESSION_SECRET` to void
+  them all. Only people who can see the issue can create one.
 
 ## The container
 

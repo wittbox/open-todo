@@ -82,9 +82,6 @@
     "me": "{name} (나)",
     "priority": "우선순위",
     "labels": "라벨",
-    "labelsEdit": "고치기",
-    "labelsDone": "다 됐음",
-    "labelsAdd": "＋ 라벨",
     "none": "없음",
     "due": "기한",
     "clearDue": "기한 지우기",
@@ -116,7 +113,12 @@
     "collapseFields": "접기",
     "labelCount": "라벨 {count}",
     "sourceMessage": "메시지에서",
-    "viewSource": "↪ 원래 메시지 보기"
+    "viewSource": "↪ 원래 메시지 보기",
+    "copyPrompt": "Claude Code 용 복사",
+    "copyPromptHint": "이슈 머리말과 본문을 Claude Code 가 읽기 좋은 마크다운으로 복사합니다. 본문 사진은 24시간 동안 열리는 링크로 들어갑니다.",
+    "copyPromptDone": "Claude Code 용으로 복사했습니다{photos, plural, =0 {} other { — 사진 #장은 24시간 동안 열리는 링크로 들어갔습니다}}. Claude Code 에 붙여 넣으세요.",
+    "copyPromptFailed": "복사에 실패했습니다.",
+    "photoLinksFailed": "사진 링크를 만들지 못했습니다 — {error}"
   },
   "comment": {
     "edit": "고치기",
@@ -191,5 +193,28 @@
     "keyRequired": "이슈를 켜려면 약어를 정하세요. 예: BUG",
     "labelName": "라벨 이름을 입력하세요.",
     "labelExists": "‘{name}’ 라벨이 이미 있습니다."
+  },
+  "labelPicker": {
+    "newLabel": "＋ 새 라벨",
+    "newLabelName": "새 라벨 이름",
+    "labelColor": "라벨 색",
+    "cancel": "취소",
+    "createAndAttach": "만들고 붙이기"
+  },
+  "prompt": {
+    "project": "프로젝트",
+    "status": "상태",
+    "priority": "우선순위",
+    "labels": "라벨",
+    "reporter": "보고자",
+    "assignee": "담당자",
+    "nobody": "없음",
+    "due": "기한",
+    "opened": "열린 날",
+    "link": "링크",
+    "noBody": "(본문 없음)",
+    "everyone": "전체",
+    "photos": "첨부 사진 (24시간 동안 열리는 링크 — 내려받아 보세요)",
+    "otherFiles": "그 밖의 첨부 (이슈 화면에서 받기)"
   }
 }
