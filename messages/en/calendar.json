@@ -38,7 +38,7 @@
     "taskName": "Task name",
     "list": "List",
     "submit": "Add",
-    "hint": "Enter adds and keeps typing · Esc closes",
+    "hint": "Enter adds · Esc closes",
     "range": "{range} · {days, plural, one {# day} other {# days}}"
   },
   "filter": {

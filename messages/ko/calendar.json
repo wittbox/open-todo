@@ -38,7 +38,7 @@
     "taskName": "작업 이름",
     "list": "목록",
     "submit": "추가",
-    "hint": "Enter 로 추가하고 이어서 입력 · Esc 로 닫기",
+    "hint": "Enter 로 추가 · Esc 로 닫기",
     "range": "{range} · {days}일"
   },
   "filter": {

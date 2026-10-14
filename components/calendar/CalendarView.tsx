@@ -1525,7 +1525,7 @@ function AddPopover({
   lists: CalendarList[];
   defaultListId: string;
   onClose: () => void;
-  /** 성공하면 true. 입력칸을 비우고 열어 둔 채 다음 입력을 받는다. */
+  /** 성공하면 true. 그러면 창을 닫는다(2026-10-14 — 예전에는 비우고 열어 둔 채 다음 입력을 받았다). */
   onSubmit: (listId: string, title: string) => Promise<boolean>;
 }) {
   const t = useTranslations("calendar");
@@ -1551,10 +1551,7 @@ function AddPopover({
     setBusy(true);
     const ok = await onSubmit(listId, v);
     setBusy(false);
-    if (ok) {
-      setTitle("");
-      inputRef.current?.focus();
-    }
+    if (ok) onClose();
   }
 
   return (

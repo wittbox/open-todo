@@ -251,8 +251,8 @@ describe("칸에서 추가", () => {
     await vi.waitFor(() =>
       expect(createTask).toHaveBeenCalledWith("inbox", "원자재 입고 확인", { dueDate: "2026-09-16" }),
     );
-    // 이어서 입력할 수 있게 창은 열린 채 비워진다
-    await vi.waitFor(() => expect((input as HTMLInputElement).value).toBe(""));
+    // 추가하면 창이 닫힌다(2026-10-14)
+    await vi.waitFor(() => expect(screen.queryByRole("dialog", { name: "9월 16일 (수) 작업 추가" })).toBeNull());
   });
 
   it("목록은 편집할 수 있는 것만 고를 수 있고, 고른 목록을 다음에도 쓴다", async () => {
