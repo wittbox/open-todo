@@ -84,7 +84,6 @@ export function IssueSettingsSection({
             value={draft.template}
             onChange={(e) => onDraft({ ...draft, template: e.target.value })}
             rows={7}
-            placeholder={t("defaults.template")}
             className="mt-1 w-full resize-y rounded border border-[#8a8886] px-2.5 py-2 font-mono text-[12.5px] outline-none focus:border-link focus:shadow-[0_0_0_1px_#2564cf]"
           />
 
@@ -111,16 +110,16 @@ export function IssueSettingsSection({
             })}
           </div>
           {settings.enabled && (
-            <div className="mt-2 flex items-center gap-1.5">
+            <div className="mt-2 flex flex-wrap items-center gap-1.5" /* 좁으면 줄을 넘긴다 — 버튼 글자가 세로로 쪼개지지 않게 */>
               <input
                 value={labelName}
                 onChange={(e) => setLabelName(e.target.value)}
                 maxLength={30}
                 placeholder={t("settings.newLabel")}
                 aria-label={t("settings.newLabelName")}
-                className={`${INPUT_CLASS} !h-8 w-36`}
+                className={`${INPUT_CLASS} !h-8 !w-auto min-w-[8rem] flex-1`}
               />
-              <span className="flex gap-1" role="radiogroup" aria-label={t("settings.labelColor")}>
+              <span className="flex shrink-0 gap-1" role="radiogroup" aria-label={t("settings.labelColor")}>
                 {LABEL_COLOR_KEYS.map((k) => (
                   <button
                     key={k}
@@ -138,7 +137,7 @@ export function IssueSettingsSection({
                 type="button"
                 disabled={!labelName.trim() || pending}
                 onClick={() => act(() => saveLabelAction(projectId, { name: labelName, color: labelColorKey }), () => setLabelName(""))}
-                className={`${BTN_CLASS} !h-8 !px-3`}
+                className={`${BTN_CLASS} !h-8 shrink-0 whitespace-nowrap !px-3`}
               >
                 {t("settings.add")}
               </button>
