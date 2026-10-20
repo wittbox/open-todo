@@ -26,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * 위에 '지난 기한' 줄이 붙는다 — 보는 기간과 상관없이 기한이 지난 미완료 작업 전부.
  *
  * 칸 범위와 반복 다음 회차는 여기(서버)서 계산하고, 칸 안 배치·끌어 놓기·추가는
- * CalendarView 가 한다. 작업을 누르면 목록 화면과 같은 상세 창이 오른쪽에 붙는다.
+ * CalendarView 가 한다. 작업을 누르면 목록 화면과 같은 상세 내용이 가운데 모달로 뜬다(2026-10-20 — 예전에는 오른쪽 창).
  */
 export default async function CalendarPage({ searchParams }: PageProps<"/calendar">) {
   const userId = await requireUserId();
@@ -67,7 +67,8 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
         holidays={holidayRegion()}
       />
       {detail && detailRole && (
-        <DetailPane key={detail.id} task={detail} canWrite={ROLE_RANK[detailRole] >= ROLE_RANK.EDITOR} />
+        // 달력에서는 오른쪽 창 대신 가운데 모달(2026-10-20) — 칸이 좁아지지 않게
+        <DetailPane key={detail.id} task={detail} canWrite={ROLE_RANK[detailRole] >= ROLE_RANK.EDITOR} variant="modal" />
       )}
     </>
   );

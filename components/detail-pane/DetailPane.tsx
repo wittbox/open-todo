@@ -24,7 +24,16 @@ import { DEFAULT_TZ, zonedToInstant } from "@/lib/tz";
 /** lib/repeat.ts 는 순수 함수라 next-intl 의 좁은 키 타입을 모른다 — 넘길 때만 풀어 준다. */
 const loose = (t: ReturnType<typeof useTranslations<"tasks">>): Translate => t as unknown as Translate;
 
-export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boolean }) {
+export function DetailPane({
+  task,
+  canWrite,
+  variant = "pane",
+}: {
+  task: TaskDetail;
+  canWrite: boolean;
+  /** pane: 오른쪽 상세 창(목록 등). modal: 가운데 모달(달력, 2026-10-20) */
+  variant?: "pane" | "modal";
+}) {
   const t = useTranslations("tasks");
   // 붙여넣은 그림에 붙일 이름만 files 묶음에서 읽는다.
   const tFiles = useTranslations("files");
@@ -57,6 +66,39 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
   // 사진 첨부 모달 — 이 작업의 사진끼리 넘긴다.
   const [viewing, setViewing] = useState<number | null>(null);
   const photos = task.attachments.filter((a) => isInlineImage(a.mimeType));
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // 모달일 때: 열리면 모달에 초점, 뒤 화면 스크롤 잠금, 닫으면 원래 초점으로.
+  useEffect(() => {
+    if (variant !== "modal") return;
+    const before = document.activeElement as HTMLElement | null;
+    dialogRef.current?.focus();
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = overflow;
+      before?.focus?.();
+    };
+  }, [variant]);
+
+  // 모달의 Esc — 사진 보기 창 → 고르기 창 → 모달 순으로 하나씩 닫는다. 쓰던 칸은 먼저 놓아(blur) 저장되게 한다.
+  useEffect(() => {
+    if (variant !== "modal") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || e.isComposing) return;
+      if (viewing != null) return; // 사진 보기 창이 스스로 닫는다
+      e.preventDefault();
+      if (picker) {
+        setPicker(null);
+        setCustomOpen(false);
+        return;
+      }
+      (document.activeElement as HTMLElement | null)?.blur?.();
+      close();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   function addStep() {
     const el = stepRef.current;
@@ -147,19 +189,8 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
   // 반복 문구와 기본 선택지는 기한에서 뽑는다. 기한이 없으면 오늘 기준.
   const repeatAnchor = due ?? todayDateOnly(new Date(), tz);
 
-  return (
+  const titleCard = (
     <>
-    {/* 1280px 보다 좁으면 옆에 붙지 않고 겹쳐 뜬다(폰은 화면 전체). 바깥을 누르면 닫힌다. */}
-    <div data-pane-backdrop="" onClick={close} className="fixed inset-0 z-20 hidden bg-black/10 md:block xl:hidden" />
-    <aside className={PANE_CLASS}>
-      <div className="flex min-w-0 items-center gap-1.5 px-3 pt-2.5">
-        <ListPath task={task} here={pathname === `/list/${task.listId}`} readOnly={!canWrite} />
-        <button onClick={close} className="ml-auto grid h-10 w-10 shrink-0 place-items-center rounded text-ink-2 hover:bg-side-hover md:h-7 md:w-7" aria-label={t("detail.close")}>
-          <Icon name="x" size={16} />
-        </button>
-      </div>
-
-      <div className="thin-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-3">
         {/* 제목 · 세부 단계 */}
         <div className="mb-2.5 rounded bg-white">
           <div className="flex items-start gap-3 px-3.5 pb-1.5 pt-3.5">
@@ -203,6 +234,8 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
             {t("detail.copyLink")}
           </button>
 
+          {/* 달력 모달에서는 단계가 5줄을 넘으면 그 안에서 스크롤 — 메모가 밀려 내려가지 않게(2026-10-20) */}
+          <div className={variant === "modal" ? "thin-scroll md:max-h-[214px] md:overflow-y-auto" : undefined}>
           {task.steps.map((s) => (
             <div key={s.id} className="group flex items-start gap-3 border-t border-divider px-3.5 py-2.5">
               <button
@@ -240,6 +273,7 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
               )}
             </div>
           ))}
+          </div>
 
           {canWrite && (
             <form
@@ -260,7 +294,10 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
             </form>
           )}
         </div>
-
+    </>
+  );
+  const datesCard = (
+    <>
         {/* 알림 · 기한 · 반복 */}
         <div className="relative mb-2.5 rounded bg-white">
           <DetailItem
@@ -402,9 +439,12 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
             />
           )}
         </div>
-
+    </>
+  );
+  const assignCard = (
+    <>
         {/* 담당자 · 파일 */}
-        <div className="relative mb-2.5 rounded bg-white">
+        <div className="relative mb-2.5 flow-root rounded bg-white">
           <DetailItem
             icon="share"
             label={task.assignee ? task.assignee.name : t("detail.assign")}
@@ -477,27 +517,47 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
             />
           )}
         </div>
-
-        {/* 메모 */}
-        <div className="rounded bg-white">
+    </>
+  );
+  const memoCard = (
+    <>
+        {/* 메모 — 달력 모달에서는 남는 높이를 다 쓴다 */}
+        <div className={variant === "modal" ? "flex min-h-[200px] flex-1 flex-col rounded bg-white" : "rounded bg-white"}>
           <textarea
             value={note}
             readOnly={!canWrite}
             placeholder={t("detail.notePlaceholder")}
             onChange={(e) => setNote(e.target.value)}
             onBlur={() => note !== (task.note ?? "") && act(() => updateTask(task.id, { note }))}
-            className="min-h-[90px] w-full resize-y bg-transparent p-3.5 text-sm outline-none placeholder:text-ink-3"
+            className={`min-h-[90px] w-full bg-transparent p-3.5 text-sm outline-none placeholder:text-ink-3 ${
+              variant === "modal" ? "flex-1 resize-none" : "resize-y"
+            }`}
           />
         </div>
-
+    </>
+  );
+  const errorBox = (
+    <>
         {error && (
           <div className="mt-2.5 flex items-start gap-2 rounded bg-[#fdf3f4] px-3 py-2 text-xs text-danger">
             <span className="flex-1">{error}</span>
             <button onClick={() => setError(null)}><Icon name="x" size={13} /></button>
           </div>
         )}
+    </>
+  );
+  const header = (
+    <>
+      <div className="flex min-w-0 items-center gap-1.5 px-3 pt-2.5">
+        <ListPath task={task} here={pathname === `/list/${task.listId}`} readOnly={!canWrite} />
+        <button onClick={close} className="ml-auto grid h-10 w-10 shrink-0 place-items-center rounded text-ink-2 hover:bg-side-hover md:h-7 md:w-7" aria-label={t("detail.close")}>
+          <Icon name="x" size={16} />
+        </button>
       </div>
-
+    </>
+  );
+  const footerBar = (
+    <>
       <div className="flex shrink-0 items-center border-t border-side-border px-4 py-3 text-xs text-ink-2">
         <span>
           {t("detail.createdOn", {
@@ -522,12 +582,69 @@ export function DetailPane({ task, canWrite }: { task: TaskDetail; canWrite: boo
           </button>
         )}
       </div>
-
+    </>
+  );
+  const toastBox = (
+    <>
       {toast && (
         <div className="pointer-events-none absolute bottom-6 left-1/2 z-40 -translate-x-1/2 rounded bg-ink px-4 py-2.5 text-[13px] text-white shadow-lg">
           {toast}
         </div>
       )}
+    </>
+  );
+
+  if (variant === "modal") {
+    // 달력의 작업 모달(2026-10-20). 덮개를 눌러도 닫히지 않는다 — ✕ · Esc 로 닫는다.
+    // 늘 같은 높이: 왼쪽 제목·단계(5줄까지) / 메모가 남는 높이를 채움, 오른쪽 기한·담당·파일(넘치면 그 단에서 스크롤).
+    // 휴대폰은 화면 전체 한 단에 오른쪽 창과 같은 순서(메모가 끝).
+    return (
+      <div className="fixed inset-0 z-40 grid place-items-center bg-black/30 md:p-4">
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={task.title}
+          tabIndex={-1}
+          className="relative flex h-full w-full flex-col bg-pane-bg outline-none md:h-[min(760px,85dvh)] md:w-[860px] md:max-w-full md:rounded-xl md:shadow-[0_25.6px_57.6px_rgba(0,0,0,.28)]"
+        >
+          {header}
+          <div className="thin-scroll flex min-h-0 flex-auto flex-col overflow-y-auto px-3 pb-3 pt-1 md:overflow-hidden">
+            <div className="flex flex-auto flex-col md:grid md:min-h-0 md:grid-cols-[1.35fr_1fr] md:grid-rows-[auto_minmax(0,1fr)] md:gap-x-2.5">
+              <div className="min-w-0 md:col-start-1 md:row-start-1">{titleCard}</div>
+              <div className="thin-scroll min-w-0 md:col-start-2 md:row-span-2 md:row-start-1 md:min-h-0 md:overflow-y-auto">
+                {datesCard}
+                {assignCard}
+                {errorBox}
+              </div>
+              <div className="flex min-w-0 flex-auto flex-col max-md:order-last md:col-start-1 md:row-start-2 md:min-h-0">{memoCard}</div>
+            </div>
+          </div>
+          {footerBar}
+          {toastBox}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+    {/* 1280px 보다 좁으면 옆에 붙지 않고 겹쳐 뜬다(폰은 화면 전체). 바깥을 누르면 닫힌다. */}
+    <div data-pane-backdrop="" onClick={close} className="fixed inset-0 z-20 hidden bg-black/10 md:block xl:hidden" />
+    <aside className={PANE_CLASS}>
+      {header}
+
+      <div className="thin-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+        {titleCard}
+        {datesCard}
+        {assignCard}
+        {memoCard}
+        {errorBox}
+      </div>
+
+      {footerBar}
+
+      {toastBox}
     </aside>
     </>
   );

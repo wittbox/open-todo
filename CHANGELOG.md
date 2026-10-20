@@ -21,6 +21,12 @@
 - Each Sunday cell shows the ISO 8601 week number of its row (the week of that row's Monday).
 - The phone dot calendar follows the same five weeks.
 - Adding a task from the calendar closes the popover once it's added (it used to stay open for the next one).
+- Clicking a task in the calendar opens it in a centred two-column modal instead of the side pane: title,
+  steps and notes on the left, dates, reminder, repeat, assignee and files on the right. The modal keeps one
+  height; more than five steps scroll inside their box and the notes fill the rest. Clicking the backdrop
+  doesn't close it — the close button and Esc do (Esc closes an open picker first). Phones show it full screen.
+  Lists keep the side pane.
+- Task details: the file drop box keeps its bottom margin inside the card.
 - Multi-day tasks: a task can have a start date as well as a due date. It is drawn as one bar across its days,
   split per week with ◀ ▶ where it continues. Drag the bar to move the whole period, drag its right end to
   change the due date (a one-day chip has the same handle — drag it to a later day to make it multi-day),
