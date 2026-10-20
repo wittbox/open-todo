@@ -7,8 +7,9 @@ import { useFormatter, useTimeZone, useTranslations } from "next-intl";
 import { Icon } from "@/components/icons";
 import { GrowingTextarea, onEnter, oneLine } from "@/components/ui/GrowingTextarea";
 import { ImageViewer } from "@/components/ui/ImageViewer";
-import { MessageBody } from "@/components/project/MessageBody";
-import { MessageComposer } from "@/components/project/MessageComposer";
+import { IssueEditor } from "@/components/issues/IssueEditor";
+import { IssueMarkdown } from "@/components/issues/IssueMarkdown";
+import type { EditorMember } from "@/components/issues/RichEditor";
 import { Face, StatusPill } from "@/components/issues/IssueBits";
 import { LabelPicker } from "@/components/issues/LabelPicker";
 import { useIssueRefresh } from "@/components/issues/useIssueRefresh";
@@ -18,7 +19,6 @@ import {
   issueImageLinksAction,
   deleteCommentAction,
   deleteIssueAction,
-  editCommentAction,
   setWatchingAction,
   updateIssueAction,
 } from "@/lib/actions/issue";
@@ -88,7 +88,6 @@ export function IssuePage({
     if (title === serverTitle) setTitle(issue.title);
   }
   const [editingBody, setEditingBody] = useState(false);
-  const [body, setBody] = useState(issue.body);
   // 좁은 화면에서는 필드를 칩 한 줄로 접어 두고, 누르면 펼친다 — 본문이 먼저 보이게.
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [viewer, setViewer] = useState<{ images: AttachmentItem[]; start: number } | null>(null);
@@ -98,6 +97,8 @@ export function IssuePage({
   const nameOf = (id: string) => names.get(id) ?? t("pane.unknown");
   const dateLabel = (ymd: string) => format.dateTime(dateOnlyFromString(ymd), DATE_ONLY);
   const mentionNames = issue.people;
+  // 편집기의 @부르기 후보 — 나를 뺀 멤버
+  const editorMembers = members.filter((m) => m.userId !== meId).map((m) => ({ userId: m.userId, name: m.name, department: m.department }));
   const listHref = `${pathname}?tab=issues`;
   const onView = (images: AttachmentItem[], start: number) => setViewer({ images, start });
 
@@ -156,22 +157,36 @@ export function IssuePage({
   }
 
   async function sendComment(text: string, files: File[]): Promise<boolean> {
-    let res: ActionResult<unknown>;
-    if (files.length === 0) {
-      res = await runAction(() => addCommentAction(issue.id, text));
-    } else {
-      const fd = new FormData();
-      fd.set("body", text);
-      for (const f of files) fd.append("files", f, f.name);
-      const r = await fetch(`/api/issues/${issue.id}/comments`, { method: "POST", body: fd }).catch(() => null);
-      const data = r ? ((await r.json().catch(() => ({}))) as { error?: string }) : {};
-      res =
-        r?.status === 401
-          ? { ok: false, error: tp("send.unauthenticated"), code: "unauthenticated" }
-          : r?.ok
-            ? { ok: true, data: null }
-            : { ok: false, error: data.error ?? t("pane.commentFailed"), code: "unknown" };
-    }
+    const res =
+      files.length === 0
+        ? await runAction(() => addCommentAction(issue.id, text))
+        : await sendForm(`/api/issues/${issue.id}/comments`, "POST", { body: text, files }, tp("send.unauthenticated"), t("pane.commentFailed"));
+    return settle(res);
+  }
+
+  /** 본문 고치기(2026-10-20) — 글과 함께 본문 파일을 붙이고 뺀다 */
+  async function saveBody(text: string, files: File[], removeIds: string[]): Promise<boolean> {
+    const ok = settle(
+      await sendForm(`/api/issues/${issue.id}/body`, "POST", { body: text, files, removeIds }, tp("send.unauthenticated"), t("editor.bodyFailed")),
+    );
+    if (ok) setEditingBody(false);
+    return ok;
+  }
+
+  /** 댓글 고치기(2026-10-20) — 고칠 때도 Ctrl+V 로 사진을 붙인다 */
+  async function saveComment(eventId: string, text: string, files: File[], removeIds: string[]): Promise<boolean> {
+    return settle(
+      await sendForm(
+        `/api/issues/${issue.id}/comments/${eventId}`,
+        "PATCH",
+        { body: text, files, removeIds },
+        tp("send.unauthenticated"),
+        t("editor.commentEditFailed"),
+      ),
+    );
+  }
+
+  function settle(res: ActionResult<unknown>): boolean {
     if (!res.ok) {
       if (!handledAuthFailure(res)) setError(res.error);
       return false;
@@ -422,36 +437,32 @@ export function IssuePage({
                   {ago(issue.createdAt)}
                   <span className="flex-1" />
                   {canWrite && !editingBody && (
-                    <button type="button" onClick={() => (setBody(issue.body), setEditingBody(true))} className="text-ink-3 hover:text-link">
+                    <button type="button" onClick={() => setEditingBody(true)} className="text-ink-3 hover:text-link">
                       {t("pane.editBody")}
                     </button>
                   )}
                 </div>
                 <div className="px-3.5 py-3">
                   {editingBody ? (
-                    <>
-                      <textarea
-                        value={body}
-                        onChange={(e) => setBody(e.target.value)}
-                        rows={12}
-                        aria-label={t("pane.bodyLabel")}
-                        className="w-full resize-y rounded border border-[#8a8886] px-2.5 py-2 text-[13.5px] leading-relaxed outline-none focus:border-link"
-                      />
-                      <div className="mt-2 flex justify-end gap-2 text-[12.5px]">
-                        <button type="button" onClick={() => (setBody(issue.body), setEditingBody(false))} className="rounded border border-[#8a8886] px-3 py-0.5">
-                          {t("pane.cancel")}
-                        </button>
-                        <button type="button" disabled={pending} onClick={() => patch({ body }, () => setEditingBody(false))} className="rounded bg-link px-3 py-0.5 text-white">
-                          {t("pane.save")}
-                        </button>
-                      </div>
-                    </>
+                    <IssueEditor
+                      mode="edit"
+                      initial={issue.body}
+                      existing={issue.attachments}
+                      members={editorMembers}
+                      knownNames={mentionNames}
+                      placeholder={t("editor.bodyPlaceholder")}
+                      ariaLabel={t("pane.bodyLabel")}
+                      minHeight={200}
+                      maxHeight={560}
+                      onSubmit={saveBody}
+                      onCancel={() => setEditingBody(false)}
+                    />
                   ) : issue.body.trim() ? (
-                    <IssueBody body={issue.body} mentions={mentionNames} meId={meId} issueKey={issueKey} />
+                    <IssueMarkdown body={issue.body} mentions={mentionNames} meId={meId} issueKey={issueKey} />
                   ) : (
                     <p className="text-[13px] text-ink-3">{t("pane.noBody")}</p>
                   )}
-                  <Files files={issue.attachments} onView={onView} />
+                  {!editingBody && <Files files={issue.attachments} onView={onView} />}
                 </div>
               </article>
 
@@ -467,8 +478,8 @@ export function IssuePage({
                       mentions={mentionNames}
                       canEdit={canWrite && e.isMine}
                       canDelete={canWrite && (e.isMine || isAdmin)}
-                      pending={pending}
-                      onEdit={(text) => act(() => editCommentAction(e.id, text))}
+                      members={editorMembers}
+                      onSave={(text, files, removeIds) => saveComment(e.id, text, files, removeIds)}
                       onDelete={() => window.confirm(t("comment.confirmDelete")) && act(() => deleteCommentAction(e.id))}
                       onView={onView}
                     />
@@ -483,15 +494,16 @@ export function IssuePage({
                 <li className="relative pb-1 pl-6 pt-3">
                   <span aria-hidden="true" className="absolute -left-[7px] top-[22px] h-3 w-3 rounded-full bg-[#c8c6c4]" />
                   {error && <p className="mb-2 rounded bg-[#fdf3f4] px-3 py-2 text-xs text-danger">{error}</p>}
-                  <MessageComposer
-                    bare
+                  <IssueEditor
+                    mode="compose"
                     placeholder={t("pane.commentPlaceholder")}
+                    ariaLabel={t("editor.commentWrite")}
                     disabled={!canWrite}
                     disabledHint={t("pane.archivedHint")}
-                    members={members.filter((m) => m.userId !== meId)}
-                    allowFiles
+                    members={editorMembers}
+                    knownNames={mentionNames}
                     actions={statusAction}
-                    onSend={sendComment}
+                    onSubmit={(text, files) => sendComment(text, files)}
                   />
                 </li>
               </ol>
@@ -505,6 +517,24 @@ export function IssuePage({
   );
 }
 
+/** multipart 요청 → ActionResult(서버 액션과 같은 모양). 파일이 실린 글은 라우트로 보낸다. */
+async function sendForm(
+  url: string,
+  method: "POST" | "PATCH",
+  input: { body: string; files: File[]; removeIds?: string[] },
+  unauthenticated: string,
+  fail: string,
+): Promise<ActionResult<unknown>> {
+  const fd = new FormData();
+  fd.set("body", input.body);
+  for (const f of input.files) fd.append("files", f, f.name);
+  for (const id of input.removeIds ?? []) fd.append("remove", id);
+  const r = await fetch(url, { method, body: fd }).catch(() => null);
+  const data = r ? ((await r.json().catch(() => ({}))) as { error?: string }) : {};
+  if (r?.status === 401) return { ok: false, error: unauthenticated, code: "unauthenticated" };
+  return r?.ok ? { ok: true, data: null } : { ok: false, error: data.error ?? fail, code: "unknown" };
+}
+
 const SMALL_BTN = "inline-flex h-[26px] items-center gap-1 whitespace-nowrap rounded border border-[#c8c6c4] bg-white px-2.5 text-[12.5px] hover:bg-side-hover disabled:opacity-50";
 
 /** 필드 한 칸 — 넓은 화면에서는 위아래로 쌓인 오른쪽 열, 좁은 화면에서는 격자 한 칸 */
@@ -516,41 +546,6 @@ function Field({ label, action, children }: { label: string; action?: React.Reac
         {action}
       </div>
       {children}
-    </div>
-  );
-}
-
-/**
- * 이슈 본문. 템플릿의 "## 재현 순서" 같은 줄은 소제목으로 그리고, 그 사이 글은 메시지와 같은 규칙(멘션·링크)으로.
- * 마크다운 전부를 해석하지는 않는다 — 소제목만으로 버그 보고서가 읽히고, 나머지는 평문이 더 안전하다.
- */
-function IssueBody({
-  body,
-  mentions,
-  meId,
-  issueKey,
-}: {
-  body: string;
-  mentions: { userId: string; name: string }[];
-  meId: string;
-  issueKey: string | null;
-}) {
-  const blocks: { heading: string | null; text: string }[] = [{ heading: null, text: "" }];
-  for (const line of body.split("\n")) {
-    const h = /^#{1,3}\s+(.+)$/.exec(line);
-    if (h) blocks.push({ heading: h[1].trim(), text: "" });
-    else blocks[blocks.length - 1].text += (blocks[blocks.length - 1].text ? "\n" : "") + line;
-  }
-  return (
-    <div className="text-[13.5px] leading-relaxed">
-      {blocks.map((b, i) => (
-        <div key={i}>
-          {b.heading && <h4 className="mt-3 text-[13px] font-semibold text-ink-2 first:mt-0">{b.heading}</h4>}
-          {b.text.trim() && (
-            <MessageBody body={b.text.replace(/^\n+|\n+$/g, "")} mentions={mentions} meId={meId} issueKey={issueKey} className="text-[13.5px]" />
-          )}
-        </div>
-      ))}
     </div>
   );
 }
@@ -604,8 +599,8 @@ function Comment({
   mentions,
   canEdit,
   canDelete,
-  pending,
-  onEdit,
+  members,
+  onSave,
   onDelete,
   onView,
 }: {
@@ -615,8 +610,8 @@ function Comment({
   mentions: { userId: string; name: string }[];
   canEdit: boolean;
   canDelete: boolean;
-  pending: boolean;
-  onEdit: (text: string) => void;
+  members: EditorMember[];
+  onSave: (text: string, files: File[], removeIds: string[]) => Promise<boolean>;
   onDelete: () => void;
   onView: (images: AttachmentItem[], start: number) => void;
 }) {
@@ -624,7 +619,6 @@ function Comment({
   const tp = useTranslations("projects");
   const tz = useTimeZone();
   const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(e.body);
   return (
     <li className="group relative py-2 pl-6" data-comment={e.id}>
       <span className="absolute -left-[15px] top-[10px]">
@@ -657,35 +651,25 @@ function Comment({
           {e.deleted ? (
             <p className="text-ink-3">{t("comment.deleted")}</p>
           ) : editing ? (
-            <>
-              <textarea
-                value={text}
-                onChange={(ev) => setText(ev.target.value)}
-                rows={3}
-                aria-label={t("comment.editLabel")}
-                className="w-full resize-y rounded border border-[#8a8886] bg-white px-2 py-1 text-[13px] outline-none"
-              />
-              <div className="mt-1 flex justify-end gap-2 text-[12px]">
-                <button type="button" onClick={() => (setText(e.body), setEditing(false))}>
-                  {t("comment.cancel")}
-                </button>
-                <button
-                  type="button"
-                  disabled={pending || !text.trim()}
-                  onClick={() => {
-                    onEdit(text);
-                    setEditing(false);
-                  }}
-                  className="font-semibold text-link"
-                >
-                  {t("comment.save")}
-                </button>
-              </div>
-            </>
+            <IssueEditor
+              mode="edit"
+              initial={e.body}
+              existing={e.attachments}
+              members={members}
+              knownNames={mentions}
+              placeholder={t("editor.commentLabel")}
+              ariaLabel={t("comment.editLabel")}
+              onSubmit={async (text, files, removeIds) => {
+                const ok = await onSave(text, files, removeIds);
+                if (ok) setEditing(false);
+                return ok;
+              }}
+              onCancel={() => setEditing(false)}
+            />
           ) : (
-            e.body && <MessageBody body={e.body} mentions={mentions} meId={meId} issueKey={issueKey} className="whitespace-pre-wrap break-words" />
+            e.body && <IssueMarkdown body={e.body} mentions={mentions} meId={meId} issueKey={issueKey} />
           )}
-          {!e.deleted && <Files files={e.attachments} onView={onView} />}
+          {!e.deleted && !editing && <Files files={e.attachments} onView={onView} />}
         </div>
       </div>
     </li>

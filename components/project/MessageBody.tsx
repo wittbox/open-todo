@@ -17,28 +17,50 @@ import { useTranslations } from "next-intl";
 
 const TOKEN_RE = /<@(all|[a-z0-9]{20,32})>|(^|[^\p{L}\p{N}_#])#(\d{1,9})(?!\d)|https?:\/\/[^\s<>"']+/gu;
 
-export function MessageBody({
-  body,
-  mentions,
-  meId,
-  meName,
-  issueKey,
-  className,
-}: {
-  body: string;
+export type InlineContext = {
   mentions: { userId: string; name: string }[];
   meId: string;
   /** 나를 부른 토큰에 붙일 이름. 없으면 "나". */
   meName?: string;
   /** 이 약어의 이슈 번호(BUG-23)를 링크로 */
   issueKey?: string | null;
+};
+
+/** 멘션에 붙일 말(전체 · 나 · 알 수 없음) — 화면 언어로 */
+export type MentionLabels = { all: string; me: string; unknown: string };
+
+export function useMentionLabels(): MentionLabels {
+  const t = useTranslations("projects");
+  return { all: t("message.mentionAll"), me: t("message.mentionMe"), unknown: t("message.unknownUser") };
+}
+
+export function MessageBody({
+  body,
+  className,
+  ...ctx
+}: InlineContext & {
+  body: string;
   className?: string;
 }) {
-  const t = useTranslations("projects");
+  const labels = useMentionLabels();
+  return <div className={`whitespace-pre-wrap break-words text-[13.5px] leading-[1.55] ${className ?? ""}`}>{inlineNodes(body, ctx, labels)}</div>;
+}
+
+/**
+ * 평문 한 조각을 멘션·#번호·링크·이슈 번호로 나눈 React 노드들. 이슈 글의 마크다운 그리기(IssueMarkdown)도
+ * 글자 조각마다 이것을 쓴다. `keyPrefix` 는 한 부모 아래 여러 번 부를 때 key 가 겹치지 않게.
+ */
+export function inlineNodes(
+  body: string,
+  { mentions, meId, meName, issueKey }: InlineContext,
+  labels: MentionLabels,
+  keyPrefix = "",
+): React.ReactNode[] {
   const names = new Map(mentions.map((m) => [m.userId, m.name]));
   const parts: React.ReactNode[] = [];
   let last = 0;
-  let key = 0;
+  let n = 0;
+  const nextKey = () => `${keyPrefix}${n++}`;
 
   for (const match of body.matchAll(TOKEN_RE)) {
     const start = match.index;
@@ -46,15 +68,10 @@ export function MessageBody({
       pushText(body.slice(last, start));
       const id = match[1];
       const me = id === meId || id === "all";
-      const label =
-        id === "all"
-          ? t("message.mentionAll")
-          : id === meId
-            ? (meName ?? t("message.mentionMe"))
-            : (names.get(id) ?? t("message.unknownUser"));
+      const label = id === "all" ? labels.all : id === meId ? (meName ?? labels.me) : (names.get(id) ?? labels.unknown);
       parts.push(
         <span
-          key={key++}
+          key={nextKey()}
           data-mention={id}
           className={`rounded px-0.5 font-semibold ${me ? "bg-[#fff4ce] text-[#7a5a00]" : "bg-[#eff4fc] text-[#1b4b9b]"}`}
         >
@@ -67,7 +84,7 @@ export function MessageBody({
       pushText(body.slice(last, start) + match[2]);
       const seq = match[3];
       parts.push(
-        <Link key={key++} href={`/t/${seq}`} className="text-link hover:underline">
+        <Link key={nextKey()} href={`/t/${seq}`} className="text-link hover:underline">
           #{seq}
         </Link>,
       );
@@ -76,7 +93,7 @@ export function MessageBody({
       pushText(body.slice(last, start));
       const url = match[0];
       parts.push(
-        <a key={key++} href={url} target="_blank" rel="noopener noreferrer" className="text-link hover:underline">
+        <a key={nextKey()} href={url} target="_blank" rel="noopener noreferrer" className="text-link hover:underline">
           {url}
         </a>,
       );
@@ -98,7 +115,7 @@ export function MessageBody({
       const s = m.index + m[1].length;
       if (s > at) parts.push(t.slice(at, s));
       parts.push(
-        <Link key={key++} href={`/i/${m[2]}`} className="font-mono text-link hover:underline">
+        <Link key={nextKey()} href={`/i/${m[2]}`} className="font-mono text-link hover:underline">
           {m[2]}
         </Link>,
       );
@@ -107,5 +124,5 @@ export function MessageBody({
     if (at < t.length) parts.push(t.slice(at));
   }
 
-  return <div className={`whitespace-pre-wrap break-words text-[13.5px] leading-[1.55] ${className ?? ""}`}>{parts}</div>;
+  return parts;
 }

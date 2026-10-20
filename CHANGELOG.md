@@ -101,6 +101,11 @@
 - **Copy for Claude Code** on the issue page: the header (project, status, priority, labels, people, link)
   and the description as Markdown. Photos in the description become links that open without signing in for
   24 hours, so Claude Code can fetch them (see SECURITY.md). Comments and history are left out.
+- **Issue text editor**: descriptions and comments are written in a WYSIWYG editor (TipTap 3) with bold,
+  italic, strikethrough, heading, bulleted/numbered/check lists, quote, code, link and @mentions. Text is still
+  stored as Markdown, so older posts, search, notifications and Copy for Claude Code keep working; display
+  renders Markdown to React nodes only (no raw HTML, only http(s)/mailto links). Ctrl+Enter sends or saves.
+- Editing a description or a comment can add files (Ctrl+V, drop, clip) and remove existing ones.
 
 ### Photos
 - The photo viewer has **Copy** (and Ctrl+C) to put the photo on the clipboard as PNG; hidden on touch

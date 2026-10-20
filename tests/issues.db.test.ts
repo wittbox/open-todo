@@ -349,6 +349,41 @@ d("이슈 (DB)", () => {
     });
   });
 
+  describe("고칠 때 파일 붙이고 빼기 (2026-10-20)", () => {
+    it("댓글 고치기: 새 파일을 붙이고 있던 파일을 뺀다(디스크에서도). 다른 사람 댓글은 못 고친다", async () => {
+      const { mkdtemp, rm, readdir } = await import("node:fs/promises");
+      const { tmpdir } = await import("node:os");
+      const { join } = await import("node:path");
+      const { editComment, editIssueBody, addComment } = await import("@/lib/issues/core");
+      const dir = await mkdtemp(join(tmpdir(), "todo-issue-edit-"));
+      process.env.UPLOAD_DIR = dir;
+      try {
+        as(f.member.id);
+        const it1 = ok(await A.createIssueAction({ projectId: f.priv.id, title: "고치기 파일", body: "처음" }));
+        const png = (name: string) => ({ name, bytes: Buffer.from(name), mimeType: "image/png" });
+        const c = await addComment(f.member.id, it1.id, { body: "댓글", files: [png("첫.png")] });
+        const first = await prisma.attachment.findFirstOrThrow({ where: { issueEventId: c.id } });
+
+        await editComment(f.member.id, c.id, "고친 **댓글**", { files: [png("둘.png")], removeIds: [first.id] });
+        const after = await prisma.attachment.findMany({ where: { issueEventId: c.id }, select: { name: true } });
+        expect(after.map((a) => a.name)).toEqual(["둘.png"]);
+        expect((await prisma.issueEvent.findUniqueOrThrow({ where: { id: c.id } })).body).toBe("고친 **댓글**");
+        expect((await readdir(dir, { recursive: true, withFileTypes: true })).filter((d) => d.isFile())).toHaveLength(1); // 뺀 파일은 디스크에서도
+
+        await expect(editComment(f.admin.id, c.id, "남의 것", {})).rejects.toThrow();
+
+        // 본문 고치기도 같다
+        await editIssueBody(f.member.id, it1.id, "## 재현\n1. 연다", { files: [png("본문.png")] });
+        const body = await prisma.issue.findUniqueOrThrow({ where: { id: it1.id }, select: { body: true, attachments: { select: { name: true } } } });
+        expect(body.body).toBe("## 재현\n1. 연다");
+        expect(body.attachments.map((a) => a.name)).toEqual(["본문.png"]);
+      } finally {
+        delete process.env.UPLOAD_DIR;
+        await rm(dir, { recursive: true, force: true });
+      }
+    });
+  });
+
   describe("메시지 → 이슈", () => {
     it("메시지의 파일을 복사해 붙이고(메시지에도 남는다), 메시지 아래에 이슈가 이어 보인다. 다른 프로젝트 메시지는 거절", async () => {
       const { mkdtemp, rm } = await import("node:fs/promises");

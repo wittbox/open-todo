@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Icon } from "@/components/icons";
 import { BTN_CLASS, Dialog, INPUT_CLASS, PRIMARY_CLASS } from "@/components/project/Dialog";
 import { LabelPicker } from "@/components/issues/LabelPicker";
+import { RichEditor } from "@/components/issues/RichEditor";
 import { createIssueAction, createIssueLabelAction } from "@/lib/actions/issue";
 import { handledAuthFailure, runAction } from "@/lib/actions/session-guard";
 import { checkFile, formatBytes, pastedImageName } from "@/lib/files/policy";
@@ -120,6 +121,8 @@ export function NewIssueDialog({
     <Dialog title={t("new.title", { project: projectName })} width={600} onClose={onClose}>
       <div
         onPaste={(e) => {
+          // 본문 편집기에 붙인 것은 편집기가 이미 받았다(addFiles) — 제목 칸 등 그 밖에서만
+          if (e.defaultPrevented) return;
           const images = [...e.clipboardData.items]
             .filter((i) => i.kind === "file" && i.type.startsWith("image/"))
             .map((i) => i.getAsFile())
@@ -139,14 +142,20 @@ export function NewIssueDialog({
           aria-label={t("new.titleLabel")}
           className={INPUT_CLASS}
         />
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={10}
-          aria-label={t("new.bodyLabel")}
-          placeholder={t("new.bodyPlaceholder")}
-          className="mt-2.5 w-full resize-y rounded border border-[#8a8886] px-2.5 py-2 text-[13px] leading-relaxed outline-none focus:border-link focus:shadow-[0_0_0_1px_#2564cf]"
-        />
+        {/* 보이는 그대로 편집(2026-10-20) — 마크다운 글자로 저장, 붙인 사진은 아래 첨부로 */}
+        <div className="mt-2.5 overflow-hidden rounded border border-[#8a8886] focus-within:border-link focus-within:shadow-[0_0_0_1px_#2564cf]">
+          <RichEditor
+            initial={from?.body ?? template}
+            placeholder={t("editor.newBodyPlaceholder")}
+            ariaLabel={t("new.bodyLabel")}
+            members={members.map((m) => ({ userId: m.userId, name: m.name, department: m.department }))}
+            onChange={setBody}
+            onFiles={addFiles}
+            onAttach={() => fileRef.current?.click()}
+            minHeight={180}
+            maxHeight={360}
+          />
+        </div>
 
         <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
           <label className="text-xs text-ink-2">

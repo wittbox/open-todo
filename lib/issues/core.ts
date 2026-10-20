@@ -5,7 +5,7 @@ import { dateOnlyFromString, dateOnlyToString, todayDateOnly } from "@/lib/date"
 import { tokenIds } from "@/lib/mentions";
 import { readFileBytes, removeFile, saveFile } from "@/lib/files/storage";
 import { sharedFilePath } from "@/lib/files/share-link";
-import { isInlineImage } from "@/lib/files/policy";
+import { isInlineImage, MAX_FILES_PER_MESSAGE } from "@/lib/files/policy";
 import { checkFiles, prepareBody, requireOpen, type IncomingFile } from "@/lib/projects/messages";
 import { ActionError } from "@/lib/actions/_helpers";
 import { DEFAULT_LABELS, LABEL_COLOR_KEYS, normalizeIssueKey, PRIORITIES, STATUSES } from "@/lib/issues/format";
@@ -372,16 +372,70 @@ async function commentFor(userId: string, eventId: string) {
   return { ev, issue, role };
 }
 
-/** 댓글 고치기 — 쓴 사람만. 새로 부른 사람에게만 알린다. */
-export async function editComment(userId: string, eventId: string, raw: string): Promise<void> {
+/** 고칠 때 붙이고 뺄 파일(2026-10-20 — 고칠 때도 Ctrl+V 로 사진을 붙인다) */
+export type FileEdit = { files?: IncomingFile[]; removeIds?: string[] };
+
+/**
+ * 붙은 파일 바꾸기 — `where` 에 속한 파일 중 removeIds 를 빼고 새 파일을 더한다. 합쳐 MAX_FILES_PER_MESSAGE 개까지.
+ * 새 파일은 먼저 디스크에 쓰고(실패하면 지운다), 뺀 파일은 DB 가 바뀐 뒤 디스크에서 지운다.
+ * 반환의 keep: 바꾼 뒤 남는 파일 수 — 본문이 비어도 되는지 판단에 쓴다.
+ */
+async function planFileEdit(
+  where: { issueId: string } | { issueEventId: string },
+  edit: FileEdit,
+): Promise<{ keep: number; remove: { id: string; storageKey: string }[]; add: { name: string; bytes: Buffer; mimeType: string }[] }> {
+  const current = await prisma.attachment.findMany({ where, select: { id: true, storageKey: true } });
+  const removeSet = new Set(edit.removeIds ?? []);
+  const remove = current.filter((a) => removeSet.has(a.id));
+  const add = checkFiles(edit.files ?? [], "issues.errors.tooManyFiles");
+  const keep = current.length - remove.length + add.length;
+  if (keep > MAX_FILES_PER_MESSAGE) throw ActionError.key("issues.errors.tooManyFiles", { max: MAX_FILES_PER_MESSAGE });
+  return { keep, remove, add };
+}
+
+/** 댓글 고치기 — 쓴 사람만. 파일을 붙이고 뺄 수 있다. 새로 부른 사람에게만 알린다. */
+export async function editComment(userId: string, eventId: string, raw: string, edit: FileEdit = {}): Promise<void> {
   const { ev, issue } = await commentFor(userId, eventId);
   if (ev.actorId !== userId) throw ActionError.key("issues.errors.editOwnComment");
-  const hasFiles = (await prisma.attachment.count({ where: { issueEventId: eventId } })) > 0;
-  const prepared = await prepareBody(issue.projectId, userId, raw, hasFiles, { max: ISSUE_COMMENT_MAX, key: "issues.errors.commentTooLong" });
+  const plan = await planFileEdit({ issueEventId: eventId }, edit);
+  const prepared = await prepareBody(issue.projectId, userId, raw, plan.keep > 0, { max: ISSUE_COMMENT_MAX, key: "issues.errors.commentTooLong" });
   const before = new Set(tokenIds(ev.body));
-  await prisma.issueEvent.update({ where: { id: eventId }, data: { body: prepared.body, editedAt: new Date() } });
+  const stored = await storeFiles(plan.add);
+  try {
+    await prisma.$transaction([
+      prisma.attachment.deleteMany({ where: { id: { in: plan.remove.map((r) => r.id) }, issueEventId: eventId } }),
+      prisma.issueEvent.update({
+        where: { id: eventId },
+        data: { body: prepared.body, editedAt: new Date(), attachments: { create: stored.map((f) => ({ ...f, uploaderId: userId })) } },
+      }),
+    ]);
+  } catch (e) {
+    for (const f of stored) await removeFile(f.storageKey);
+    throw e;
+  }
+  for (const r of plan.remove) await removeFile(r.storageKey);
   const added = (prepared.all && !before.has("all") ? prepared.memberIds : prepared.userIds).filter((id) => !before.has(id));
   await notifyMany(added, { projectId: issue.projectId, issueId: issue.id, actorId: userId, issueEventId: eventId, kind: "ISSUE_MENTION" });
+}
+
+/** 이슈 본문 고치기 + 본문 파일 붙이고 빼기(2026-10-20). 본문은 updateIssue 를 거친다(멘션 알림 그대로). */
+export async function editIssueBody(userId: string, issueId: string, raw: string, edit: FileEdit = {}): Promise<void> {
+  await issueFor(userId, issueId, "write");
+  const plan = await planFileEdit({ issueId }, edit);
+  await updateIssue(userId, issueId, { body: raw });
+  if (plan.add.length === 0 && plan.remove.length === 0) return;
+  const stored = await storeFiles(plan.add);
+  try {
+    await prisma.$transaction([
+      prisma.attachment.deleteMany({ where: { id: { in: plan.remove.map((r) => r.id) }, issueId } }),
+      ...stored.map((f) => prisma.attachment.create({ data: { ...f, issueId, uploaderId: userId } })),
+      prisma.issue.update({ where: { id: issueId }, data: { updatedAt: new Date() } }),
+    ]);
+  } catch (e) {
+    for (const f of stored) await removeFile(f.storageKey);
+    throw e;
+  }
+  for (const r of plan.remove) await removeFile(r.storageKey);
 }
 
 /** 댓글 지우기 — 쓴 사람이나 관리자. 자리는 남기고("삭제된 댓글") 본문과 파일만 지운다. */
