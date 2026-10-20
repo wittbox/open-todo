@@ -123,7 +123,7 @@ export function IssueEditor({
         e.preventDefault();
         addFiles([...e.dataTransfer.files]);
       }}
-      className={`relative rounded-md border bg-white focus-within:border-link focus-within:shadow-[0_0_0_1px_#2564cf] ${
+      className={`relative overflow-hidden rounded-md border bg-white focus-within:border-link focus-within:shadow-[0_0_0_1px_#2564cf] ${
         dragOver ? "border-dashed border-link" : "border-[#8a8886]"
       }`}
     >
