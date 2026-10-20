@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Dependencies
+- Next.js 16.4.0 (was 16.3.5), pinned exactly together with eslint-config-next. Clears the advisories for
+  next/og `ImageResponse` remote code execution, `use cache` leaking Draft Mode content, SSG/ISR cache
+  poisoning and image-optimizer SSRF; open-todo uses none of those features. sharp 0.35.5 (librsvg CVE) and
+  source-map-js 1.2.2 come along.
+
 ### One container
 - The image now carries its own PostgreSQL 16 — one container, one volume (`/data`): the database,
   attachments and generated secrets. `docker run -v todo-data:/data -p 3000:3000 -e APP_BASE_URL=… ghcr.io/wittbox/open-todo`.
